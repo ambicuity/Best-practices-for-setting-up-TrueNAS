@@ -1,0 +1,73 @@
+---
+# TrueNAS Observability and Monitoring Configuration
+
+smart:
+  schedule:
+    short_test:
+      frequency: daily
+      time: "01:00"
+      disks: "all"
+    long_test:
+      frequency: weekly
+      day: sunday
+      time: "02:00"
+      disks: "all"
+
+  alerts:
+    email: admin@example.com
+    on_failure: true
+    on_temperature: true
+    temperature_threshold: 50
+
+zfs_events:
+  monitoring:
+    - pool_degraded
+    - disk_failure
+    - scrub_errors
+    - checksum_errors
+    - io_errors
+
+  notifications:
+    email: admin@example.com
+    severity:
+      critical: immediate
+      warning: daily_digest
+      info: weekly_summary
+
+system_health:
+  metrics:
+    - cpu_usage
+    - memory_usage
+    - disk_space
+    - network_throughput
+    - pool_health
+    - arc_statistics
+
+  thresholds:
+    cpu_warning: 80
+    cpu_critical: 95
+    memory_warning: 85
+    memory_critical: 95
+    disk_space_warning: 80
+    disk_space_critical: 90
+
+grafana_dashboards:
+  - name: "TrueNAS Overview"
+    panels:
+      - pool_health
+      - system_resources
+      - network_activity
+      - smart_status
+
+  - name: "Performance Metrics"
+    panels:
+      - arc_hit_ratio
+      - iops_breakdown
+      - latency_metrics
+      - throughput_trends
+
+prometheus_exporters:
+  - node_exporter
+  - zfs_exporter
+  - smartctl_exporter
+  - custom_truenas_exporter

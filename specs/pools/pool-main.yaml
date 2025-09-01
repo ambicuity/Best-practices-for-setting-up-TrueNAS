@@ -1,0 +1,15 @@
+---
+pool: tank
+ashift: 12
+vdevs:
+  - type: raidz2
+    disks: [da0, da1, da2, da3, da4, da5]
+  - type: raidz2
+    disks: [da6, da7, da8, da9, da10, da11]
+spares: [da12]
+properties:
+  autotrim: true
+  autotrim_interval: weekly
+scrub:
+  schedule: monthly
+  day_of_month: 1

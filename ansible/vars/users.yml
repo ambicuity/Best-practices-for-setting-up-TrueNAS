@@ -1,0 +1,17 @@
+---
+system_users:
+  - name: alice
+    uid: 2101
+    groups: [storage-admins]
+    shell: /bin/bash
+    home: /mnt/tank/homes/alice
+  - name: bob
+    uid: 2102
+    groups: [media-users, app-users]
+    shell: /bin/bash
+    home: /mnt/tank/homes/bob
+  - name: service-account
+    uid: 2200
+    groups: [app-users]
+    shell: /usr/sbin/nologin
+    system: true

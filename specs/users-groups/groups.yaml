@@ -1,0 +1,28 @@
+---
+groups:
+  - name: storage-admins
+    gid: 1100
+    description: "Full storage system administrators"
+  - name: media-users
+    gid: 1200
+    description: "Users with access to media datasets"
+  - name: app-users
+    gid: 1300
+    description: "Users with access to application datasets"
+
+users:
+  - name: alice
+    uid: 2101
+    groups: [storage-admins]
+    shell: /bin/bash
+    home: /mnt/tank/homes/alice
+  - name: bob
+    uid: 2102
+    groups: [media-users, app-users]
+    shell: /bin/bash
+    home: /mnt/tank/homes/bob
+  - name: service-account
+    uid: 2200
+    groups: [app-users]
+    shell: /usr/sbin/nologin
+    system: true

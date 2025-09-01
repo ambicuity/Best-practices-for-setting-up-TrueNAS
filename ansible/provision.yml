@@ -1,0 +1,68 @@
+---
+- name: TrueNAS Provision
+  hosts: truenas
+  gather_facts: true
+  become: true
+  vars_files:
+    - vars/pools.yml
+    - vars/datasets.yml
+    - vars/users.yml
+
+  tasks:
+    - name: Install required packages
+      ansible.builtin.package:
+        name:
+          - zfs-utils
+          - smartmontools
+        state: present
+
+    # Note: ZFS pool creation requires the community.general collection
+    # For actual deployment, ensure: ansible-galaxy collection install community.general
+    - name: Create ZFS pool (placeholder)
+      ansible.builtin.debug:
+        msg: "Would create ZFS pool {{ zfs_pool.name }} with vdevs {{ zfs_pool.vdevs }}"
+      vars:
+        zfs_pool: "{{ pools.main | default({'name': 'tank', 'vdevs': []}) }}"
+
+    - name: Create ZFS datasets (placeholder)
+      ansible.builtin.debug:
+        msg: "Would create dataset {{ item.name }} with properties {{ item.properties | default({}) }}"
+      loop: "{{ zfs_datasets | default([]) }}"
+
+    - name: Set up periodic scrub
+      ansible.builtin.cron:
+        name: "ZFS scrub {{ pools.main.name | default('tank') }}"
+        job: "/usr/sbin/zpool scrub {{ pools.main.name | default('tank') }}"
+        minute: "0"
+        hour: "2"
+        day: "1"
+        user: root
+
+    - name: Set up SMART testing
+      ansible.builtin.cron:
+        name: "SMART short test"
+        job: "/usr/sbin/smartctl -t short /dev/{{ item }}"
+        minute: "0"
+        hour: "1"
+        user: root
+      loop: "{{ smart_devices | default([]) }}"
+
+    - name: Set up SMART long test
+      ansible.builtin.cron:
+        name: "SMART long test"
+        job: "/usr/sbin/smartctl -t long /dev/{{ item }}"
+        minute: "0"
+        hour: "2"
+        weekday: "0"
+        user: root
+      loop: "{{ smart_devices | default([]) }}"
+
+    - name: Create mount points
+      ansible.builtin.file:
+        path: "{{ item.mount_point }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ item.owner | default('root') }}"
+        group: "{{ item.group | default('root') }}"
+      loop: "{{ mount_points | default([]) }}"
+      when: item.mount_point is defined

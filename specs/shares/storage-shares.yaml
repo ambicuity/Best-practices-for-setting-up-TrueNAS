@@ -1,0 +1,58 @@
+---
+shares:
+  smb:
+    - name: media
+      path: /mnt/tank/media
+      comment: "Media files and streaming content"
+      browseable: true
+      public: false
+      writeable: true
+      guest_ok: false
+      valid_users: "@media-users"
+      create_mask: "0664"
+      directory_mask: "0775"
+
+    - name: apps
+      path: /mnt/tank/apps
+      comment: "Application data and configurations"
+      browseable: false
+      public: false
+      writeable: true
+      guest_ok: false
+      valid_users: "@storage-admins"
+      create_mask: "0660"
+      directory_mask: "0770"
+
+  nfs:
+    - path: /mnt/tank/backups
+      comment: "Backup storage for remote systems"
+      networks:
+        - "192.168.1.0/24(rw,sync,no_subtree_check,no_root_squash)"
+        - "10.0.0.0/8(ro,sync,no_subtree_check,all_squash,anonuid=65534,anongid=65534)"
+      options:
+        - "sec=sys"
+        - "fsid=1"
+
+iscsi:
+  targets:
+    - name: "iqn.2024-01.local.truenas:vm-storage"
+      portal_group: "pg1"
+      initiator_group: "ig1"
+      auth_network: "192.168.100.0/24"
+
+  extents:
+    - name: "vm-disk-01"
+      type: "ZVOL"
+      device: "tank/vms/vm-disk-01"
+      size: "100GB"
+
+  portal_groups:
+    - name: "pg1"
+      portals:
+        - ip: "192.168.100.10"
+          port: 3260
+
+  initiator_groups:
+    - name: "ig1"
+      initiators:
+        - "iqn.2024-01.hypervisor.local:initiator1"

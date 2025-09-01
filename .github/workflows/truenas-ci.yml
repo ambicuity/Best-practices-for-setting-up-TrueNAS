@@ -1,0 +1,92 @@
+name: TrueNAS CI
+on:
+  pull_request:
+    paths:
+      - 'specs/**'
+      - 'ansible/**'
+      - 'tests/**'
+      - 'policy/**'
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: YAML Lint
+    steps:
+      - uses: actions/checkout@v4
+      - name: YAML lint
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: specs/ ansible/ tests/
+          config_file: .yamllint
+
+  validate-specs:
+    runs-on: ubuntu-latest
+    name: Validate Specifications
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install jsonschema pyyaml
+      - name: Validate specs schema
+        run: |
+          if [ -f tests/schema/validate.sh ]; then
+            chmod +x tests/schema/validate.sh
+            ./tests/schema/validate.sh
+          else
+            echo "Schema validation script not found, skipping..."
+          fi
+
+  ansible-check:
+    runs-on: ubuntu-latest
+    name: Ansible Syntax Check
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible
+      - name: Ansible syntax check
+        run: |
+          if [ -f ansible/provision.yml ]; then
+            ansible-playbook --syntax-check ansible/provision.yml
+          fi
+          if [ -f ansible/bootstrap.yml ]; then
+            ansible-playbook --syntax-check ansible/bootstrap.yml
+          fi
+
+  policy-check:
+    runs-on: ubuntu-latest
+    name: Policy Validation
+    steps:
+      - uses: actions/checkout@v4
+      - name: Policy checks
+        run: |
+          if [ -f tests/policy/check.sh ]; then
+            chmod +x tests/policy/check.sh
+            ./tests/policy/check.sh
+          else
+            echo "Policy check script not found, creating basic safety checks..."
+            # Basic safety checks
+            echo "Checking for unsafe configurations..."
+            if grep -r "exposure.*internet" specs/ 2>/dev/null; then
+              echo "ERROR: Found internet-exposed UI configuration"
+              exit 1
+            fi
+            if find specs/ -name "*.yaml" -o -name "*.yml" 2>/dev/null | xargs grep -l "dataset.*critical" | xargs grep -L "backup" 2>/dev/null || true; then
+              echo "WARNING: Found critical datasets without backup policies"
+            fi
+            echo "Basic policy checks passed"
+          fi

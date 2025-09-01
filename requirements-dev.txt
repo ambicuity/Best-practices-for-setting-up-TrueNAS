@@ -1,0 +1,9 @@
+ansible>=9
+ansible-lint
+molecule
+molecule-plugins[docker]
+yamllint
+pytest
+markdownlint-cli
+PyYAML
+jinja2

@@ -1,0 +1,68 @@
+---
+- name: TrueNAS Bootstrap
+  hosts: truenas
+  gather_facts: false
+  become: true
+  vars:
+    admin_keys:
+      - user: alice
+        key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQA... alice@admin-laptop"
+      - user: bob
+        key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQA... bob@admin-workstation"
+
+  tasks:
+    - name: Ensure admin groups exist
+      ansible.builtin.group:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - storage-admins
+        - media-users
+        - app-users
+
+    - name: Create admin users
+      ansible.builtin.user:
+        name: "{{ item.user }}"
+        groups: "{{ item.groups | default([]) }}"
+        shell: /bin/bash
+        create_home: true
+        state: present
+      loop:
+        - {user: alice, groups: ["storage-admins", "sudo"]}
+        - {user: bob, groups: ["media-users", "app-users"]}
+
+    - name: Upload SSH keys for admins
+      ansible.builtin.authorized_key:
+        user: "{{ item.user }}"
+        key: "{{ item.key }}"
+        state: present
+      loop: "{{ admin_keys }}"
+
+    - name: Configure sudo for storage-admins
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers.d/storage-admins
+        line: "%storage-admins ALL=(ALL) NOPASSWD:ALL"
+        create: true
+        validate: 'visudo -cf %s'
+
+    - name: Disable root SSH login
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin no'
+        backup: true
+      notify: restart sshd
+
+    - name: Configure SSH key-only authentication
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+        backup: true
+      notify: restart sshd
+
+  handlers:
+    - name: restart sshd
+      ansible.builtin.systemd:
+        name: ssh
+        state: restarted

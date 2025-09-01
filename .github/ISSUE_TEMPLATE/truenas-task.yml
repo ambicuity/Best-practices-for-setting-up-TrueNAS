@@ -1,0 +1,33 @@
+name: TrueNAS Task
+description: Task for TrueNAS system design, deployment, or maintenance
+title: "[TASK] "
+labels: [truenas, planning]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired Outcome
+      description: User story / success criteria
+      placeholder: "As a [user type], I want [goal] so that [benefit]..."
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints & Risks
+      description: Technical constraints, security requirements, and risk considerations
+      placeholder: "Hardware limitations, security requirements, budget constraints, timeline..."
+    validations:
+      required: false
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Specific criteria that must be met for this task to be considered complete
+      placeholder: |
+        - [ ] Requirement 1
+        - [ ] Requirement 2
+        - [ ] Testing completed
+        - [ ] Documentation updated
+    validations:
+      required: true
