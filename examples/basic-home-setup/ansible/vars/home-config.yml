@@ -1,0 +1,226 @@
+---
+# Variables for Basic Home Setup
+# These variables customize the deployment for home environment
+
+# Environment settings
+deployment_environment: home
+deployment_tier: basic
+admin_contact: john@home.local
+timezone: America/New_York
+
+# Network configuration
+network:
+  primary_interface: eno1
+  ip_address: 192.168.1.100
+  netmask: 255.255.255.0
+  gateway: 192.168.1.1
+  dns_servers:
+    - 192.168.1.1
+    - 1.1.1.1
+    - 8.8.8.8
+  domain: home.local
+
+# Storage configuration
+storage:
+  pool_name: tank
+  pool_type: raidz1
+  ashift: 12
+  drives:
+    - sda
+    - sdb  
+    - sdc
+    - sdd
+  properties:
+    autotrim: "on"
+    autotrim_interval: weekly
+    autoexpand: "on"
+    compression: lz4
+    atime: "off"
+
+# Users and groups
+users:
+  admin_users:
+    - name: john
+      uid: 2000
+      groups: [storage-admins, family, sudo]
+      email: john@home.local
+      home_quota: 500GB
+    - name: susan
+      uid: 2001
+      groups: [family]
+      email: susan@home.local
+      home_quota: 500GB
+      
+  family_users:
+    - name: alice
+      uid: 2002
+      groups: [family]
+      email: alice@home.local
+      home_quota: 200GB
+    - name: bob
+      uid: 2003
+      groups: [family]
+      email: bob@home.local  
+      home_quota: 200GB
+      
+  service_accounts:
+    - name: nextcloud
+      uid: 3000
+      groups: [apps]
+    - name: plex
+      uid: 3001
+      groups: [apps]
+
+# Dataset structure
+datasets:
+  home_datasets:
+    - name: tank/home
+      properties:
+        compression: lz4
+        atime: "off"
+        recordsize: 128K
+        quota: 2TB
+    - name: tank/home/john
+      properties:
+        quota: 500GB
+        reservation: 10GB
+    - name: tank/home/susan
+      properties:
+        quota: 500GB
+        reservation: 10GB
+    - name: tank/home/alice
+      properties:
+        quota: 200GB
+        reservation: 5GB
+    - name: tank/home/bob
+      properties:
+        quota: 200GB
+        reservation: 5GB
+        
+  shared_datasets:
+    - name: tank/shared
+      properties:
+        compression: lz4
+        atime: "off"
+        recordsize: 128K
+    - name: tank/shared/media
+      properties:
+        recordsize: 1M
+        compression: lz4
+        quota: 2TB
+    - name: tank/shared/documents
+      properties:
+        recordsize: 128K
+        compression: zstd
+        quota: 500GB
+    - name: tank/shared/public
+      properties:
+        recordsize: 128K
+        compression: lz4
+        quota: 100GB
+    - name: tank/shared/downloads
+      properties:
+        recordsize: 128K
+        compression: lz4
+        quota: 200GB
+        
+  app_datasets:
+    - name: tank/apps
+      properties:
+        compression: zstd
+        atime: "off"
+        recordsize: 128K
+        quota: 1TB
+    - name: tank/apps/nextcloud
+      properties:
+        recordsize: 128K
+        compression: zstd
+        quota: 500GB
+    - name: tank/apps/plex
+      properties:
+        recordsize: 1M
+        compression: lz4
+        quota: 200GB
+
+# Backup configuration
+backup:
+  snapshot_schedules:
+    critical:
+      - datasets: ["tank/home", "tank/shared/documents", "tank/apps"]
+        hourly_keep: 24
+        daily_keep: 7
+        weekly_keep: 4
+        monthly_keep: 6
+    media:
+      - datasets: ["tank/shared/media"]
+        daily_keep: 3
+        weekly_keep: 2
+        monthly_keep: 3
+    temp:
+      - datasets: ["tank/shared/downloads", "tank/shared/public"]
+        daily_keep: 1
+        
+  cloud_backup:
+    provider: backblaze_b2
+    bucket: truenas-home-backup
+    encryption_key_file: /root/.backup_keys/b2_encryption.key
+    bandwidth_limit: 50Mbps
+    schedule: "0 6 * * *"  # 6 AM daily
+
+# Monitoring configuration
+monitoring:
+  email_alerts: true
+  smtp_server: smtp.gmail.com
+  smtp_port: 587
+  alert_email: john@home.local
+  
+  smart_tests:
+    short_test_schedule: "0 2 * * *"  # 2 AM daily
+    long_test_schedule: "0 3 * * 0"   # 3 AM Sundays
+    
+  pool_scrub:
+    schedule: "0 4 1 * *"  # 4 AM 1st of month
+    
+  thresholds:
+    pool_capacity_warning: 75
+    pool_capacity_critical: 85
+    temperature_warning: 60
+    temperature_critical: 70
+
+# Services configuration
+services:
+  smb:
+    enabled: true
+    workgroup: HOME
+    server_name: TRUENAS-HOME
+    
+  nfs:
+    enabled: true
+    v4_enabled: true
+    v3_enabled: true
+    v2_enabled: false
+    
+  ssh:
+    enabled: true
+    port: 22
+    root_login: false
+    password_auth: false
+    
+  web_ui:
+    https_port: 443
+    http_redirect: true
+    certificate: selfsigned
+
+# Security settings
+security:
+  firewall_enabled: true
+  allowed_networks:
+    - 192.168.1.0/24
+  vpn_ready: true
+  fail2ban_enabled: true
+  
+# Performance tuning
+performance:
+  arc_max: "8G"  # Adjust based on available RAM
+  l2arc_enabled: false  # No L2ARC in basic setup
+  slog_enabled: false   # No SLOG in basic setup

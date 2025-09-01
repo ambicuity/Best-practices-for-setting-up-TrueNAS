@@ -1,0 +1,350 @@
+---
+# Comprehensive Backup Strategy for Home Setup
+# Implements 3-2-1 backup methodology
+
+# Snapshot policies for different data types
+snapshots:
+  # Critical data - frequent snapshots
+  critical_data:
+    - dataset: "tank/home"
+      schedule:
+        - name: "hourly"
+          pattern: "hourly-%Y%m%d-%H%M"
+          frequency: "0 * * * *"  # Every hour
+          keep: 24
+        - name: "daily" 
+          pattern: "daily-%Y%m%d"
+          frequency: "0 2 * * *"  # 2 AM daily
+          keep: 7
+        - name: "weekly"
+          pattern: "weekly-%Y-W%W"  
+          frequency: "0 3 * * 0"  # 3 AM Sundays
+          keep: 4
+        - name: "monthly"
+          pattern: "monthly-%Y%m"
+          frequency: "0 4 1 * *"  # 4 AM 1st of month
+          keep: 6
+          
+    - dataset: "tank/shared/documents"
+      schedule:
+        - name: "hourly"
+          pattern: "hourly-%Y%m%d-%H%M"
+          frequency: "0 * * * *"
+          keep: 12  # Less retention for shared docs
+        - name: "daily"
+          pattern: "daily-%Y%m%d"  
+          frequency: "0 2 * * *"
+          keep: 7
+        - name: "weekly"
+          pattern: "weekly-%Y-W%W"
+          frequency: "0 3 * * 0"
+          keep: 4
+          
+    - dataset: "tank/apps"
+      schedule:
+        - name: "hourly"
+          pattern: "hourly-%Y%m%d-%H%M"
+          frequency: "0 * * * *"
+          keep: 24
+        - name: "daily"
+          pattern: "daily-%Y%m%d"
+          frequency: "0 2 * * *" 
+          keep: 14  # More retention for apps
+        - name: "weekly"
+          pattern: "weekly-%Y-W%W"
+          frequency: "0 3 * * 0"
+          keep: 8
+
+  # Media data - less frequent (large files, less critical)
+  media_data:
+    - dataset: "tank/shared/media"
+      schedule:
+        - name: "daily"
+          pattern: "daily-%Y%m%d"
+          frequency: "0 4 * * *"  # 4 AM daily
+          keep: 3  # Only 3 days of media snapshots
+        - name: "weekly" 
+          pattern: "weekly-%Y-W%W"
+          frequency: "0 5 * * 0"  # 5 AM Sundays
+          keep: 2
+        - name: "monthly"
+          pattern: "monthly-%Y%m"
+          frequency: "0 6 1 * *"  # 6 AM 1st of month
+          keep: 3
+          
+  # Temporary data - minimal snapshots
+  temp_data:
+    - dataset: "tank/shared/downloads"
+      schedule:
+        - name: "daily"
+          pattern: "daily-%Y%m%d"
+          frequency: "0 1 * * *"  # 1 AM daily
+          keep: 1  # Only keep 1 day
+
+# Replication tasks for offsite backup
+replication:
+  # Cloud backup to Backblaze B2
+  cloud_backup:
+    - name: "critical-to-b2"
+      description: "Critical data to Backblaze B2"
+      source_datasets: 
+        - "tank/home"
+        - "tank/shared/documents" 
+        - "tank/apps/nextcloud"
+      destination: "b2://truenas-home-backup/critical/"
+      schedule:
+        frequency: "0 6 * * *"  # 6 AM daily
+        enabled: true
+      encryption:
+        enabled: true
+        key_file: "/root/.backup_keys/b2_encryption.key"
+        cipher: "aes-256-gcm"
+      compression: true
+      bandwidth_limit: "50Mbps"  # Don't saturate home internet
+      verify_integrity: true
+      retention:
+        keep_daily: 30
+        keep_weekly: 12
+        keep_monthly: 6
+      notification:
+        on_success: false  # Don't spam on success
+        on_failure: true
+        email: "admin@home.local"
+        
+  # Local backup to external USB drive
+  local_backup:  
+    - name: "full-to-usb"
+      description: "Full backup to USB drive"
+      source_datasets:
+        - "tank"  # Everything
+      destination: "usb://external-backup/"
+      schedule:
+        frequency: "0 22 * * 6"  # 10 PM Saturdays
+        enabled: true
+      encryption:
+        enabled: true
+        key_file: "/root/.backup_keys/usb_encryption.key"
+      compression: true
+      incremental: true
+      retention:
+        keep_weekly: 4
+        keep_monthly: 3
+      notification:
+        on_completion: true
+        email: "admin@home.local"
+        
+  # Replication to friend's TrueNAS (reciprocal backup)
+  reciprocal_backup:
+    - name: "critical-to-friend"
+      description: "Critical data to friend's TrueNAS" 
+      source_datasets:
+        - "tank/home/john"
+        - "tank/home/susan"
+        - "tank/shared/documents"
+      destination: "ssh://friend-truenas.example.com/tank/remote-backup/smith-family/"
+      schedule:
+        frequency: "0 23 * * *"  # 11 PM daily
+        enabled: false  # Enable after setting up keys
+      encryption:
+        enabled: true
+        key_file: "/root/.backup_keys/friend_encryption.key"
+      ssh_key: "/root/.ssh/backup_rsa"
+      bandwidth_limit: "20Mbps"  # Be nice to friend's internet
+      retention:
+        keep_daily: 14
+        keep_weekly: 8
+      notification:
+        on_failure: true
+        email: "admin@home.local"
+
+# Backup validation and testing
+validation:
+  # Automated restore tests
+  restore_tests:
+    schedule:
+      frequency: "quarterly"  # Every 3 months
+      day: "first_sunday"
+      time: "10:00"
+    tests:
+      - name: "home-directory-restore"
+        description: "Test restoring user home directory"
+        dataset: "tank/home/john"
+        restore_location: "/tmp/restore-test"
+        validation_script: "/usr/local/bin/validate-home-restore.sh"
+        cleanup: true
+        
+      - name: "app-data-restore"
+        description: "Test restoring application data"
+        dataset: "tank/apps/nextcloud"
+        restore_location: "/tmp/restore-test-apps"
+        validation_script: "/usr/local/bin/validate-app-restore.sh"
+        cleanup: true
+        
+    notification:
+      results_email: "admin@home.local"
+      on_success: true
+      on_failure: true
+
+  # Integrity checks
+  integrity_checks:
+    schedule:
+      frequency: "weekly"
+      day: "sunday"
+      time: "08:00"
+    checks:
+      - name: "snapshot-verification"
+        description: "Verify snapshot integrity"
+        command: "zfs list -t snapshot"
+        
+      - name: "replication-verification"
+        description: "Verify replication destinations are reachable"
+        targets:
+          - "b2://truenas-home-backup/"
+          # - "ssh://friend-truenas.example.com/"
+          
+      - name: "backup-size-check"
+        description: "Monitor backup storage usage"
+        thresholds:
+          warning: 80  # percent full
+          critical: 90
+        
+    notification:
+      email: "admin@home.local"
+      on_warning: true
+      on_critical: true
+
+# Disaster recovery procedures
+disaster_recovery:
+  # RTO/RPO targets
+  targets:
+    recovery_time_objective: "4 hours"   # System back online
+    recovery_point_objective: "1 hour"  # Max data loss
+    
+  # Recovery procedures
+  procedures:
+    - scenario: "disk_failure"
+      description: "Single disk failure in RAIDZ1"
+      steps:
+        - "Identify failed disk via alerts"
+        - "Order replacement disk"  
+        - "Replace failed disk"
+        - "Resilver pool"
+        - "Verify pool health"
+      estimated_time: "2-4 hours (plus disk shipping)"
+      
+    - scenario: "pool_corruption"
+      description: "ZFS pool corruption"
+      steps:
+        - "Boot from USB/alternate media"
+        - "Import pool in read-only mode"
+        - "Extract critical data"
+        - "Rebuild pool from backups"
+        - "Restore data from most recent backups"
+      estimated_time: "4-8 hours"
+      
+    - scenario: "system_failure"
+      description: "Complete system hardware failure"
+      steps:
+        - "Install TrueNAS on replacement hardware"
+        - "Restore system configuration"
+        - "Create new storage pool"
+        - "Restore data from cloud backup"
+        - "Reconfigure services and shares"
+      estimated_time: "1-2 days"
+      
+  # Emergency contacts and information
+  emergency_info:
+    contacts:
+      - name: "John (Primary Admin)"
+        phone: "+1-555-0101" 
+        email: "john@home.local"
+      - name: "Susan (Secondary)"
+        phone: "+1-555-0102"
+        email: "susan@home.local"
+    important_info:
+      - "Backup encryption keys stored in family safe"
+      - "B2 account credentials in password manager"
+      - "Hardware vendor: [Store/Vendor name]"
+      - "TrueNAS license info: [if applicable]"
+
+# Monitoring and alerting
+monitoring:
+  # Backup job monitoring
+  backup_monitoring:
+    enabled: true
+    check_interval: 3600  # 1 hour
+    alerts:
+      - condition: "backup_failed"
+        severity: "critical"
+        notification: "immediate"
+      - condition: "backup_delayed"
+        severity: "warning"
+        notification: "daily_summary"
+      - condition: "backup_storage_full"
+        severity: "critical"
+        notification: "immediate"
+        
+  # Storage capacity monitoring
+  capacity_monitoring:
+    enabled: true
+    thresholds:
+      warning: 75   # percent
+      critical: 85  # percent
+    check_interval: 1800  # 30 minutes
+    
+  # Health monitoring
+  health_monitoring:
+    enabled: true
+    checks:
+      - "pool_health"
+      - "disk_smart_status"
+      - "snapshot_creation"
+      - "replication_success"
+    check_interval: 600  # 10 minutes
+
+# Backup retention policies
+retention:
+  # Global retention settings
+  default_retention:
+    snapshots:
+      hourly: 24    # 24 hours
+      daily: 7      # 1 week
+      weekly: 4     # 1 month  
+      monthly: 6    # 6 months
+      yearly: 2     # 2 years
+    replications:
+      daily: 30     # 30 days
+      weekly: 12    # 3 months
+      monthly: 12   # 1 year
+      
+  # Custom retention for specific datasets
+  custom_retention:
+    "tank/home":
+      snapshots:
+        hourly: 24
+        daily: 14   # 2 weeks for home directories
+        weekly: 8   # 2 months
+        monthly: 12 # 1 year
+    "tank/apps":
+      snapshots:
+        hourly: 48  # More retention for apps
+        daily: 14
+        weekly: 8
+        monthly: 12
+
+# Cost optimization
+cost_optimization:
+  # Cloud storage optimization
+  cloud_storage:
+    lifecycle_policies:
+      - move_to_infrequent_access: "30 days"
+      - move_to_archive: "90 days"
+      - delete_after: "2555 days"  # 7 years
+    compression_level: "high"
+    deduplication: true
+    
+  # Bandwidth optimization
+  bandwidth:
+    schedule_heavy_transfers: "off_peak"  # 11 PM - 6 AM
+    use_compression: true
+    delta_transfers: true  # Only transfer changes

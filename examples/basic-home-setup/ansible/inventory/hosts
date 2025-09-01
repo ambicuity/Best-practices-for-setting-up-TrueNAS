@@ -1,0 +1,28 @@
+[truenas_home]
+truenas-home ansible_host=192.168.1.100 ansible_user=root ansible_ssh_private_key_file=~/.ssh/truenas_key
+
+[truenas_home:vars]
+# Connection settings
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+ansible_python_interpreter=/usr/bin/python3
+
+# Environment-specific variables
+environment=home
+deployment_type=basic
+admin_email=admin@home.local
+timezone=America/New_York
+
+# Network configuration
+primary_interface=eno1
+network_cidr=192.168.1.0/24
+gateway_ip=192.168.1.1
+dns_servers=["192.168.1.1", "1.1.1.1", "8.8.8.8"]
+
+# Storage configuration  
+pool_name=tank
+pool_disks=["sda", "sdb", "sdc", "sdd"]
+pool_type=raidz1
+
+# User management
+admin_users=["john"]
+family_users=["john", "susan", "alice", "bob"]

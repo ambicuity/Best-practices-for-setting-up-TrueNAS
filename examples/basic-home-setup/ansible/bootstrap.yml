@@ -1,0 +1,354 @@
+---
+# Bootstrap Playbook for Basic Home Setup
+# This playbook handles initial system setup, user creation, and basic security
+
+- name: TrueNAS Home Bootstrap
+  hosts: truenas_home
+  gather_facts: true
+  become: true
+  
+  vars_files:
+    - vars/home-config.yml
+    
+  vars:
+    admin_ssh_keys:
+      john:
+        - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQA... john@laptop"
+        - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQA... john@desktop"
+      susan:
+        - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQA... susan@laptop"
+
+  pre_tasks:
+    - name: Verify TrueNAS is accessible
+      ping:
+      
+    - name: Check TrueNAS version
+      shell: cat /etc/version
+      register: truenas_version
+      
+    - name: Display TrueNAS version
+      debug:
+        msg: "TrueNAS Version: {{ truenas_version.stdout }}"
+        
+  tasks:
+    # System preparation
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+      
+    - name: Install essential packages
+      package:
+        name:
+          - curl
+          - wget
+          - vim
+          - htop
+          - smartmontools
+          - zfs-auto-snapshot
+        state: present
+        
+    # User and group management
+    - name: Create storage admin group
+      group:
+        name: storage-admins
+        gid: 1000
+        state: present
+        
+    - name: Create family group
+      group:
+        name: family
+        gid: 1001
+        state: present
+        
+    - name: Create guest group  
+      group:
+        name: guests
+        gid: 1002
+        state: present
+        
+    - name: Create app group
+      group:
+        name: apps
+        gid: 1003
+        state: present
+        
+    # Create admin users
+    - name: Create admin user john
+      user:
+        name: john
+        uid: 2000
+        groups: [storage-admins, family, sudo]
+        shell: /bin/bash
+        create_home: true
+        state: present
+        
+    - name: Create family user susan
+      user:
+        name: susan
+        uid: 2001
+        groups: [family]
+        shell: /bin/bash
+        create_home: true
+        state: present
+        
+    - name: Create family user alice
+      user:
+        name: alice
+        uid: 2002
+        groups: [family]
+        shell: /bin/bash
+        create_home: true
+        state: present
+        
+    - name: Create family user bob
+      user:
+        name: bob
+        uid: 2003
+        groups: [family]
+        shell: /bin/bash
+        create_home: true
+        state: present
+        
+    - name: Create guest user
+      user:
+        name: guest
+        uid: 2004
+        groups: [guests]
+        shell: /bin/bash
+        create_home: false
+        state: present
+        
+    # SSH key management
+    - name: Set up SSH keys for john
+      authorized_key:
+        user: john
+        key: "{{ item }}"
+        state: present
+      loop: "{{ admin_ssh_keys.john }}"
+      when: admin_ssh_keys.john is defined
+      
+    - name: Set up SSH keys for susan
+      authorized_key:
+        user: susan
+        key: "{{ item }}"
+        state: present
+      loop: "{{ admin_ssh_keys.susan }}"
+      when: admin_ssh_keys.susan is defined
+      
+    # Sudo configuration
+    - name: Configure sudo for storage-admins
+      lineinfile:
+        path: /etc/sudoers.d/storage-admins
+        line: '%storage-admins ALL=(ALL) NOPASSWD: ALL'
+        create: true
+        validate: 'visudo -cf %s'
+        mode: '0440'
+        
+    # SSH security hardening
+    - name: Configure SSH security settings
+      blockinfile:
+        path: /etc/ssh/sshd_config
+        block: |
+          # Security hardening
+          PermitRootLogin no
+          PasswordAuthentication no
+          PubkeyAuthentication yes
+          AuthenticationMethods publickey
+          MaxAuthTries 3
+          ClientAliveInterval 300
+          ClientAliveCountMax 2
+          AllowUsers john susan
+          AllowGroups storage-admins
+        backup: true
+      notify: restart_sshd
+      
+    # Firewall basic setup
+    - name: Install and configure UFW firewall
+      block:
+        - name: Install ufw
+          package:
+            name: ufw
+            state: present
+            
+        - name: Reset UFW to defaults
+          ufw:
+            state: reset
+            
+        - name: Set UFW default policies
+          ufw:
+            direction: "{{ item.direction }}"
+            policy: "{{ item.policy }}"
+          loop:
+            - { direction: 'incoming', policy: 'deny' }
+            - { direction: 'outgoing', policy: 'allow' }
+            
+        - name: Allow SSH from local network
+          ufw:
+            rule: allow
+            port: '22'
+            proto: tcp
+            src: '192.168.1.0/24'
+            comment: 'SSH access from local network'
+            
+        - name: Allow HTTPS from local network  
+          ufw:
+            rule: allow
+            port: '443'
+            proto: tcp
+            src: '192.168.1.0/24'
+            comment: 'TrueNAS Web UI'
+            
+        - name: Allow SMB/CIFS from local network
+          ufw:
+            rule: allow
+            port: '{{ item }}'
+            proto: tcp
+            src: '192.168.1.0/24'
+          loop: [139, 445]
+          
+        - name: Allow NFS from local network
+          ufw:
+            rule: allow
+            port: '{{ item }}'
+            proto: tcp  
+            src: '192.168.1.0/24'
+          loop: [111, 2049]
+          
+        - name: Enable UFW
+          ufw:
+            state: enabled
+            
+    # System hardening
+    - name: Configure system security settings
+      sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: true
+      loop:
+        - { key: 'net.ipv4.ip_forward', value: '0' }
+        - { key: 'net.ipv4.tcp_syncookies', value: '1' }
+        - { key: 'net.ipv4.conf.all.accept_redirects', value: '0' }
+        - { key: 'net.ipv4.conf.all.accept_source_route', value: '0' }
+        - { key: 'net.ipv4.conf.all.log_martians', value: '1' }
+        
+    # Time synchronization
+    - name: Configure NTP
+      block:
+        - name: Install chrony
+          package:
+            name: chrony
+            state: present
+            
+        - name: Configure chrony
+          template:
+            src: chrony.conf.j2
+            dest: /etc/chrony/chrony.conf
+            backup: true
+          notify: restart_chrony
+          
+    # Email configuration for alerts
+    - name: Configure email for system alerts
+      block:
+        - name: Install mail utilities
+          package:
+            name:
+              - mailutils
+              - postfix
+            state: present
+            
+        - name: Configure postfix for relay
+          template:
+            src: postfix_main.cf.j2
+            dest: /etc/postfix/main.cf
+            backup: true
+          notify: restart_postfix
+          
+        - name: Set up mail aliases
+          lineinfile:
+            path: /etc/aliases
+            regexp: '^root:'
+            line: 'root: {{ admin_email }}'
+          notify: newaliases
+          
+    # Initial monitoring setup
+    - name: Configure basic system monitoring
+      block:
+        - name: Create monitoring scripts directory
+          file:
+            path: /usr/local/bin/monitoring
+            state: directory
+            mode: '0755'
+            
+        - name: Install basic health check script
+          template:
+            src: health-check.sh.j2
+            dest: /usr/local/bin/monitoring/health-check.sh
+            mode: '0755'
+            
+        - name: Set up daily health check cron
+          cron:
+            name: "Daily health check"
+            minute: "0"
+            hour: "8"
+            job: "/usr/local/bin/monitoring/health-check.sh"
+            user: root
+            
+  handlers:
+    - name: restart_sshd
+      systemd:
+        name: ssh
+        state: restarted
+        
+    - name: restart_chrony
+      systemd:
+        name: chrony
+        state: restarted
+        enabled: true
+        
+    - name: restart_postfix
+      systemd:
+        name: postfix
+        state: restarted
+        enabled: true
+        
+    - name: newaliases
+      command: newaliases
+      
+  post_tasks:
+    - name: Verify SSH configuration
+      command: sshd -t
+      register: ssh_test
+      failed_when: ssh_test.rc != 0
+      
+    - name: Display bootstrap summary
+      debug:
+        msg: |
+          Bootstrap completed successfully!
+          
+          Next steps:
+          1. Copy your SSH keys to the system
+          2. Test SSH access with new users
+          3. Run the provision playbook to set up storage
+          4. Configure backup destinations
+          
+          Important security notes:
+          - Root login via SSH is now disabled
+          - Password authentication is disabled
+          - Firewall is enabled with local network access only
+          - System hardening has been applied
+          
+          Admin access:
+            SSH: ssh john@{{ ansible_host }}
+            Web UI: https://{{ ansible_host }}
+            
+    - name: Save bootstrap completion timestamp
+      copy:
+        content: |
+          Bootstrap completed: {{ ansible_date_time.iso8601 }}
+          TrueNAS Version: {{ truenas_version.stdout }}
+          Admin users: john, susan
+          Security: SSH keys only, firewall enabled
+        dest: /root/bootstrap-completed.txt

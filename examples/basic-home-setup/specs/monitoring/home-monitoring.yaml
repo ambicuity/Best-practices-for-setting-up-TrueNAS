@@ -1,0 +1,413 @@
+---
+# Monitoring and Observability Configuration for Home Setup
+# Comprehensive but lightweight monitoring suitable for home use
+
+# System health monitoring
+system_monitoring:
+  # Basic system metrics
+  metrics:
+    enabled: true
+    collection_interval: 60  # seconds
+    retention_days: 30
+    
+    # What to monitor
+    collect:
+      - cpu_usage
+      - memory_usage  
+      - disk_usage
+      - network_io
+      - zfs_arc_stats
+      - pool_health
+      - disk_smart
+      - temperature
+      - power_consumption
+      
+  # System resource thresholds
+  thresholds:
+    cpu:
+      warning: 80   # percent
+      critical: 95
+    memory:
+      warning: 80
+      critical: 90
+    disk_space:
+      warning: 75
+      critical: 85
+    temperature:
+      warning: 60   # Celsius
+      critical: 70
+      
+# ZFS and storage monitoring  
+storage_monitoring:
+  # Pool health checks
+  pool_health:
+    enabled: true
+    check_interval: 300  # 5 minutes
+    alerts:
+      - condition: "degraded"
+        severity: "warning"
+        notification: "immediate"
+      - condition: "faulted"
+        severity: "critical"
+        notification: "immediate"
+      - condition: "offline"
+        severity: "critical"
+        notification: "immediate"
+        
+  # SMART monitoring
+  smart_monitoring:
+    enabled: true
+    # Test schedules
+    short_test:
+      schedule: "daily"
+      time: "02:00"
+    long_test:
+      schedule: "weekly" 
+      day: "sunday"
+      time: "03:00"
+    # Alert thresholds
+    alert_attributes:
+      - "Reallocated_Sector_Ct"  # > 0
+      - "Current_Pending_Sector"  # > 0
+      - "Offline_Uncorrectable"   # > 0
+      - "Temperature_Celsius"     # > 60
+      - "UDMA_CRC_Error_Count"    # > 0
+      
+  # Scrub monitoring
+  scrub_monitoring:
+    enabled: true
+    schedule: "monthly"
+    day_of_month: 1
+    time: "04:00"
+    max_duration_hours: 24  # Alert if scrub takes too long
+    
+  # Snapshot monitoring
+  snapshot_monitoring:
+    enabled: true
+    checks:
+      - "snapshot_creation_success"
+      - "snapshot_retention_policy"
+      - "snapshot_space_usage"
+    alert_on_failure: true
+
+# Network monitoring
+network_monitoring:
+  # Interface monitoring
+  interface_monitoring:
+    enabled: true
+    interfaces: ["eno1"]  # Monitor primary interface
+    metrics:
+      - "bandwidth_utilization"
+      - "packet_errors"
+      - "packet_drops"
+      - "latency"
+    thresholds:
+      bandwidth_warning: 80    # percent of interface capacity
+      bandwidth_critical: 95
+      error_rate_warning: 0.1  # percent
+      latency_warning: 50      # ms
+      
+  # Connectivity monitoring  
+  connectivity_checks:
+    enabled: true
+    targets:
+      - name: "gateway"
+        host: "192.168.1.1"
+        method: "ping"
+        interval: 60
+        timeout: 5
+      - name: "internet"
+        host: "8.8.8.8"
+        method: "ping" 
+        interval: 300
+        timeout: 10
+      - name: "dns"
+        host: "google.com"
+        method: "dns_lookup"
+        interval: 300
+        
+# Service monitoring
+service_monitoring:
+  # Core TrueNAS services
+  core_services:
+    enabled: true
+    services:
+      - name: "ssh"
+        port: 22
+        check_interval: 300
+      - name: "web_ui"
+        port: 443  
+        check_interval: 300
+        ssl_check: true
+      - name: "smb"
+        port: 445
+        check_interval: 300
+      - name: "nfs"
+        port: 2049
+        check_interval: 300
+    alert_on_failure: true
+    
+  # Application services
+  application_services:
+    enabled: true
+    services:
+      - name: "nextcloud"
+        url: "https://192.168.1.100/nextcloud"
+        check_interval: 600
+        expected_response: 200
+      - name: "plex"
+        port: 32400
+        check_interval: 600
+    alert_on_failure: true
+
+# Log monitoring and analysis
+log_monitoring:
+  # System logs
+  system_logs:
+    enabled: true
+    log_files:
+      - path: "/var/log/syslog"
+        patterns:
+          - pattern: "error|ERROR|Error"
+            severity: "error"
+          - pattern: "warning|WARNING|Warning"
+            severity: "warning"
+          - pattern: "fail|FAIL|Fail"
+            severity: "error"
+    retention_days: 30
+    
+  # ZFS logs
+  zfs_logs:
+    enabled: true
+    monitor:
+      - "pool_errors"
+      - "scrub_results"
+      - "resilver_progress"
+      - "checksum_errors"
+    alert_patterns:
+      - "checksum error"
+      - "I/O error"
+      - "device fault"
+      
+  # Application logs
+  app_logs:
+    enabled: true
+    applications:
+      - name: "nextcloud"
+        log_path: "/var/log/nextcloud/nextcloud.log"
+        error_patterns: ["ERROR", "FATAL"]
+      - name: "smb"
+        log_path: "/var/log/samba/"
+        error_patterns: ["ERROR", "PANIC"]
+
+# Alerting and notifications
+alerting:
+  # Email notifications
+  email:
+    enabled: true
+    smtp_server: "smtp.gmail.com"  # Adjust for your email provider
+    smtp_port: 587
+    username: "truenas-alerts@home.local"
+    password_file: "/root/.email_password"
+    use_tls: true
+    from_address: "truenas-alerts@home.local"
+    
+    # Recipients
+    recipients:
+      critical: ["john@home.local"]
+      warning: ["john@home.local"] 
+      info: ["john@home.local"]
+      
+    # Email templates
+    templates:
+      subject_prefix: "[TrueNAS Home]"
+      include_system_info: true
+      include_resolution_steps: true
+      
+  # Push notifications (optional)
+  pushover:
+    enabled: false  # Enable if you use Pushover
+    api_token: ""
+    user_key: ""
+    
+  # SMS alerts (optional)
+  sms:
+    enabled: false  # Enable if critical
+    provider: "twilio"
+    account_sid: ""
+    auth_token: ""
+    from_number: ""
+    to_numbers: ["+1-555-0101"]  # John's phone
+
+# Dashboard and visualization  
+dashboard:
+  # Built-in TrueNAS dashboard
+  builtin:
+    enabled: true
+    widgets:
+      - "system_overview"
+      - "pool_status"
+      - "network_activity"
+      - "service_status"
+      - "recent_alerts"
+      
+  # Optional Grafana dashboard
+  grafana:
+    enabled: false  # Can enable for advanced visualization
+    port: 3000
+    datasources:
+      - "prometheus"
+      - "influxdb"
+    dashboards:
+      - "system_metrics"
+      - "zfs_performance"
+      - "network_stats"
+
+# Performance monitoring
+performance_monitoring:
+  # ZFS performance
+  zfs_performance:
+    enabled: true
+    metrics:
+      - "arc_hit_ratio" 
+      - "pool_iostat"
+      - "dataset_usage"
+      - "compression_ratio"
+    thresholds:
+      arc_hit_ratio_warning: 80  # percent
+      pool_capacity_warning: 75  # percent
+      
+  # Network performance
+  network_performance:
+    enabled: true
+    baseline_bandwidth: "1000Mbps"  # Gigabit
+    alert_on_degradation: true
+    
+  # Application performance
+  app_performance:
+    enabled: true
+    response_time_monitoring:
+      - service: "web_ui"
+        threshold: 5000  # ms
+      - service: "smb_shares"
+        threshold: 2000  # ms
+      - service: "nextcloud"
+        threshold: 3000  # ms
+
+# Security monitoring
+security_monitoring:
+  # Failed login attempts
+  login_monitoring:
+    enabled: true
+    thresholds:
+      failed_ssh_attempts: 5      # per hour
+      failed_web_attempts: 10     # per hour
+    lockout_duration: 30          # minutes
+    alert_on_suspicious_activity: true
+    
+  # File access monitoring
+  file_monitoring:
+    enabled: false  # Can enable for high security needs
+    monitor_paths:
+      - "/mnt/tank/shared/documents"
+      - "/etc/passwd"
+      - "/etc/shadow"
+    alert_on:
+      - "unauthorized_access"
+      - "permission_changes"
+      - "mass_file_operations"
+      
+  # Network security monitoring
+  network_security:
+    enabled: true
+    monitor:
+      - "port_scans"
+      - "unusual_traffic_patterns"
+      - "failed_connections"
+    geo_blocking: false  # Disable for home use
+    rate_limiting: true
+
+# Backup monitoring  
+backup_monitoring:
+  # Backup job monitoring
+  job_monitoring:
+    enabled: true
+    monitor:
+      - "snapshot_jobs"
+      - "replication_jobs"
+      - "cloud_backup_jobs"
+    alerts:
+      - condition: "job_failed"
+        severity: "critical"
+      - condition: "job_delayed" 
+        severity: "warning"
+      - condition: "backup_size_unusual"
+        severity: "info"
+        
+  # Backup destination monitoring
+  destination_monitoring:
+    enabled: true
+    destinations:
+      - name: "backblaze_b2"
+        type: "cloud"
+        check_connectivity: true
+        check_quota: true
+      - name: "usb_backup"
+        type: "local"
+        check_mount: true
+        check_space: true
+
+# Maintenance scheduling
+maintenance:
+  # Automatic maintenance tasks
+  automated_tasks:
+    enabled: true
+    tasks:
+      - name: "log_rotation"
+        schedule: "weekly"
+        action: "rotate_logs"
+      - name: "tmp_cleanup"
+        schedule: "daily"
+        action: "cleanup_temp_files"
+      - name: "update_check"
+        schedule: "weekly"
+        action: "check_system_updates"
+        
+  # Maintenance windows
+  maintenance_windows:
+    - name: "weekly_maintenance"
+      schedule: "sunday 02:00-06:00"
+      allowed_actions:
+        - "system_updates"
+        - "pool_scrub"
+        - "backup_validation"
+        
+# Reporting
+reporting:
+  # Regular status reports
+  status_reports:
+    enabled: true
+    frequency: "weekly"
+    day: "monday"
+    time: "08:00"
+    recipients: ["john@home.local"]
+    include:
+      - "system_health_summary"
+      - "storage_usage_trends"
+      - "backup_status"
+      - "performance_metrics"
+      - "security_events"
+      
+  # Monthly detailed reports
+  detailed_reports:
+    enabled: true
+    frequency: "monthly"
+    day: 1
+    time: "09:00"
+    recipients: ["john@home.local"]
+    include:
+      - "capacity_planning"
+      - "performance_analysis"
+      - "security_audit"
+      - "backup_validation_results"
+      - "maintenance_recommendations"
