@@ -4,15 +4,28 @@ This repository provides a comprehensive framework for setting up, configuring, 
 
 ## 🚀 Quick Start
 
+### For New Users - Complete Examples  
+1. **Choose Your Scenario**: Start with [examples/](examples/) for complete deployment examples
+   - **Home/Small Office**: [Basic Home Setup](examples/basic-home-setup/) - Complete 4-drive RAIDZ1 system
+   - **Enterprise**: [Advanced Enterprise](examples/advanced-enterprise/) - High-availability configuration  
+2. **Follow the Workflow**: Use [examples/workflows/](examples/workflows/) for step-by-step guidance
+3. **Deploy**: Run the provided Ansible playbooks for automated deployment
+4. **Validate**: Use included test scripts to verify your deployment
+
+### For Advanced Users - Framework Components
 1. **Review the Framework**: Start with [AGENTS.md](AGENTS.md) to understand the multi-agent system
-2. **Bootstrap a System**: Follow [docs/runbooks/bootstrap.md](docs/runbooks/bootstrap.md) for new installations
-3. **Customize Specifications**: Edit YAML files in `specs/` to match your requirements
+2. **Customize Specifications**: Edit YAML files in `specs/` to match your requirements  
+3. **Bootstrap a System**: Follow [docs/runbooks/bootstrap.md](docs/runbooks/bootstrap.md) for new installations
 4. **Validate Configuration**: Run `./tests/schema/validate.sh` to check your specifications
 5. **Deploy**: Use Ansible playbooks in `ansible/` for automated deployment
 
 ## 📁 Repository Structure
 
 - [`AGENTS.md`](AGENTS.md) - Complete multi-agent system documentation
+- [`examples/`](examples/) - **Complete deployment examples from setup to production**
+  - [`basic-home-setup/`](examples/basic-home-setup/) - Home/small office deployment with full automation
+  - [`workflows/`](examples/workflows/) - Step-by-step deployment workflows  
+  - [`troubleshooting/`](examples/troubleshooting/) - Common issues and solutions
 - `specs/` - YAML specifications for all TrueNAS components
 - `ansible/` - Automation playbooks for deployment
 - `tests/` - Validation scripts and policy checks
@@ -42,6 +55,16 @@ The framework includes example specifications for:
 - Backup and replication policies
 - Monitoring and alerting
 - Shares and iSCSI targets
+
+**🎯 Complete Examples Available:**
+- **[Basic Home Setup](examples/basic-home-setup/)**: Production-ready 4-drive RAIDZ1 system for families
+  - Hardware requirements and build guide
+  - Complete Ansible automation
+  - Comprehensive backup strategy (3-2-1 methodology)
+  - Security hardening and VPN-ready configuration  
+  - Monitoring and maintenance procedures
+  - Validation and testing scripts
+- **[Deployment Workflows](examples/workflows/)**: Step-by-step guides using the multi-agent framework
 
 ## 🤖 Multi-Agent System
 

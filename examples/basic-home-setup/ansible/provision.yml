@@ -1,0 +1,360 @@
+---
+# TrueNAS Home Provisioning Playbook
+# This playbook creates storage pools, datasets, shares, and configures services
+
+- name: TrueNAS Home Storage Provisioning
+  hosts: truenas_home
+  gather_facts: true
+  become: true
+  
+  vars_files:
+    - vars/home-config.yml
+    
+  pre_tasks:
+    - name: Verify bootstrap was completed
+      stat:
+        path: /root/bootstrap-completed.txt
+      register: bootstrap_check
+      
+    - name: Fail if bootstrap not completed
+      fail:
+        msg: "Bootstrap must be completed before provisioning. Run bootstrap.yml first."
+      when: not bootstrap_check.stat.exists
+      
+    - name: Check available disks
+      shell: lsblk -d -o NAME,SIZE,TYPE | grep disk
+      register: available_disks
+      
+    - name: Display available disks
+      debug:
+        msg: "Available disks: {{ available_disks.stdout_lines }}"
+        
+    - name: Verify required disks are available
+      shell: "lsblk /dev/{{ item }} > /dev/null"
+      loop: "{{ storage.drives }}"
+      register: disk_check
+      failed_when: disk_check.rc != 0
+      
+  tasks:
+    # ZFS Pool Creation
+    - name: Check if pool already exists
+      shell: "zpool list {{ storage.pool_name }}"
+      register: pool_exists
+      failed_when: false
+      changed_when: false
+      
+    - name: Create ZFS pool
+      shell: >
+        zpool create 
+        -o ashift={{ storage.ashift }}
+        -o autotrim={{ storage.properties.autotrim }}
+        -o autoexpand={{ storage.properties.autoexpand }}
+        -O compression={{ storage.properties.compression }}
+        -O atime={{ storage.properties.atime }}
+        {{ storage.pool_name }}
+        {{ storage.pool_type }}
+        {% for drive in storage.drives %}/dev/{{ drive }}{% if not loop.last %} {% endif %}{% endfor %}
+      when: pool_exists.rc != 0
+      register: pool_creation
+      
+    - name: Verify pool creation
+      shell: "zpool status {{ storage.pool_name }}"
+      register: pool_status
+      when: pool_creation.changed
+      
+    - name: Display pool status
+      debug:
+        msg: "{{ pool_status.stdout_lines }}"
+      when: pool_creation.changed
+      
+    # Dataset Creation
+    - name: Create home datasets
+      zfs:
+        name: "{{ item.name }}"
+        state: present
+        extra_zfs_properties: "{{ item.properties }}"
+      loop: "{{ datasets.home_datasets }}"
+      
+    - name: Create shared datasets  
+      zfs:
+        name: "{{ item.name }}"
+        state: present
+        extra_zfs_properties: "{{ item.properties }}"
+      loop: "{{ datasets.shared_datasets }}"
+      
+    - name: Create app datasets
+      zfs:
+        name: "{{ item.name }}"
+        state: present  
+        extra_zfs_properties: "{{ item.properties }}"
+      loop: "{{ datasets.app_datasets }}"
+      
+    # Directory Structure and Permissions
+    - name: Create mount point directories
+      file:
+        path: "/mnt/{{ item.name }}"
+        state: directory
+        mode: '0755'
+      loop: "{{ datasets.home_datasets + datasets.shared_datasets + datasets.app_datasets }}"
+      
+    - name: Set ownership for home directories
+      file:
+        path: "/mnt/tank/home/{{ item.name }}"
+        owner: "{{ item.name }}"
+        group: "{{ item.name }}"
+        mode: '0750'
+        state: directory
+      loop: "{{ users.admin_users + users.family_users }}"
+      
+    - name: Set ownership for shared directories
+      file:
+        path: "/mnt/{{ item.path }}"
+        owner: root
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
+        state: directory
+      loop:
+        - { path: "tank/shared/media", group: "family", mode: "0775" }
+        - { path: "tank/shared/documents", group: "family", mode: "0775" }
+        - { path: "tank/shared/public", group: "family", mode: "0755" }
+        - { path: "tank/shared/downloads", group: "family", mode: "0775" }
+        
+    - name: Set ownership for app directories
+      file:
+        path: "/mnt/{{ item.path }}"
+        owner: "{{ item.owner }}"
+        group: apps
+        mode: "{{ item.mode }}"
+        state: directory
+      loop:
+        - { path: "tank/apps", owner: "root", mode: "0755" }
+        - { path: "tank/apps/nextcloud", owner: "nextcloud", mode: "0750" }
+        - { path: "tank/apps/plex", owner: "plex", mode: "0750" }
+        
+    # SMB/CIFS Configuration
+    - name: Configure SMB global settings
+      blockinfile:
+        path: /etc/samba/smb.conf
+        block: |
+          [global]
+          workgroup = {{ services.smb.workgroup }}
+          server string = {{ services.smb.server_name }}
+          netbios name = {{ services.smb.server_name }}
+          security = user
+          map to guest = bad user
+          
+          # Protocol settings
+          server min protocol = SMB2_02
+          server max protocol = SMB3_11
+          client min protocol = SMB2_02  
+          client max protocol = SMB3_11
+          
+          # Security settings
+          server signing = auto
+          client signing = auto
+          
+          # Performance settings
+          socket options = TCP_NODELAY IPTOS_LOWDELAY
+          use sendfile = yes
+          aio read size = 16384
+          aio write size = 16384
+          
+          # Logging
+          log level = 1
+          log file = /var/log/samba/log.%m
+          max log size = 1000
+          
+        backup: true
+      notify: restart_smb
+      
+    - name: Create SMB shares
+      blockinfile:
+        path: /etc/samba/smb.conf
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - {{ item.name }}"
+        block: |
+          [{{ item.name }}]
+          comment = {{ item.comment }}
+          path = {{ item.path }}
+          browseable = {{ item.browseable | default('yes') }}
+          guest ok = {{ item.guest_ok | default('no') }}  
+          read only = {{ item.read_only | default('no') }}
+          valid users = {{ item.valid_users | default('@family') }}
+          create mask = {{ item.create_mask | default('0664') }}
+          directory mask = {{ item.directory_mask | default('0775') }}
+          {% if item.vfs_objects is defined %}
+          vfs objects = {{ item.vfs_objects | join(' ') }}
+          {% endif %}
+        backup: true
+      loop:
+        - name: "family-media"
+          comment: "Family photos and videos"
+          path: "/mnt/tank/shared/media"
+          valid_users: "@family"
+          vfs_objects: ["fruit", "streams_xattr"]
+        - name: "family-documents"
+          comment: "Family documents"  
+          path: "/mnt/tank/shared/documents"
+          valid_users: "@family"
+          vfs_objects: ["fruit", "streams_xattr", "recycle"]
+        - name: "downloads"
+          comment: "Temporary downloads"
+          path: "/mnt/tank/shared/downloads"
+          valid_users: "@family"
+        - name: "public"
+          comment: "Public guest access"
+          path: "/mnt/tank/shared/public"
+          guest_ok: "yes"
+          read_only: "yes"
+          valid_users: "guest @family"
+      notify: restart_smb
+      
+    # NFS Configuration
+    - name: Configure NFS exports
+      blockinfile:
+        path: /etc/exports
+        block: |
+          # Family media - read/write for family
+          /mnt/tank/shared/media 192.168.1.0/24(rw,sync,no_root_squash,no_subtree_check)
+          
+          # Family documents - read/write for family
+          /mnt/tank/shared/documents 192.168.1.0/24(rw,sync,root_squash,no_subtree_check)
+          
+          # Media read-only access
+          /mnt/tank/shared/media 192.168.1.0/24(ro,sync,all_squash,no_subtree_check,anonuid=65534,anongid=65534)
+        backup: true
+      notify: 
+        - export_nfs
+        - restart_nfs
+        
+    # Snapshot Configuration
+    - name: Install zfs-auto-snapshot
+      package:
+        name: zfs-auto-snapshot
+        state: present
+        
+    - name: Configure snapshot schedules for critical data
+      cron:
+        name: "{{ item.name }} snapshots for {{ item.dataset }}"
+        minute: "{{ item.minute }}"
+        hour: "{{ item.hour }}"  
+        day: "{{ item.day | default('*') }}"
+        job: "zfs-auto-snapshot --quiet --syslog --label={{ item.label }} --keep={{ item.keep }} {{ item.dataset }}"
+      loop:
+        # Hourly snapshots
+        - { name: "hourly", dataset: "tank/home", minute: "0", hour: "*", label: "hourly", keep: "24" }
+        - { name: "hourly", dataset: "tank/shared/documents", minute: "0", hour: "*", label: "hourly", keep: "12" }
+        - { name: "hourly", dataset: "tank/apps", minute: "0", hour: "*", label: "hourly", keep: "24" }
+        # Daily snapshots  
+        - { name: "daily", dataset: "tank/home", minute: "0", hour: "2", label: "daily", keep: "7" }
+        - { name: "daily", dataset: "tank/shared", minute: "0", hour: "2", label: "daily", keep: "3" }
+        - { name: "daily", dataset: "tank/apps", minute: "0", hour: "2", label: "daily", keep: "14" }
+        
+    # Monitoring Configuration
+    - name: Configure SMART tests
+      cron:
+        name: "{{ item.name }}"
+        minute: "0"
+        hour: "{{ item.hour }}"
+        day: "{{ item.day | default('*') }}"
+        job: "smartctl -t {{ item.test_type }} /dev/{{ item.drive }}"
+      loop:
+        # Short tests daily for all drives
+        - { name: "SMART short test sda", drive: "sda", test_type: "short", hour: "2" }
+        - { name: "SMART short test sdb", drive: "sdb", test_type: "short", hour: "2" } 
+        - { name: "SMART short test sdc", drive: "sdc", test_type: "short", hour: "2" }
+        - { name: "SMART short test sdd", drive: "sdd", test_type: "short", hour: "2" }
+        # Long tests weekly
+        - { name: "SMART long test sda", drive: "sda", test_type: "long", hour: "3", day: "0" }
+        - { name: "SMART long test sdb", drive: "sdb", test_type: "long", hour: "3", day: "1" }
+        - { name: "SMART long test sdc", drive: "sdc", test_type: "long", hour: "3", day: "2" } 
+        - { name: "SMART long test sdd", drive: "sdd", test_type: "long", hour: "3", day: "3" }
+        
+    - name: Configure pool scrub
+      cron:
+        name: "Monthly pool scrub"
+        minute: "0"
+        hour: "4"
+        day: "1"
+        job: "zpool scrub {{ storage.pool_name }}"
+        
+    # Service enablement
+    - name: Enable and start services
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop:
+        - smbd
+        - nmbd
+        - nfs-server
+        - rpc-statd
+        
+  handlers:
+    - name: restart_smb
+      systemd:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - smbd
+        - nmbd
+        
+    - name: export_nfs
+      command: exportfs -ra
+      
+    - name: restart_nfs
+      systemd:
+        name: nfs-server
+        state: restarted
+        
+  post_tasks:
+    - name: Verify pool health
+      shell: "zpool status {{ storage.pool_name }}"
+      register: final_pool_status
+      
+    - name: Verify dataset creation
+      shell: "zfs list -r {{ storage.pool_name }}"
+      register: dataset_list
+      
+    - name: Test SMB configuration
+      shell: "testparm -s"
+      register: smb_test
+      
+    - name: Display deployment summary
+      debug:
+        msg: |
+          TrueNAS Home provisioning completed successfully!
+          
+          Storage Pool: {{ storage.pool_name }}
+          Type: {{ storage.pool_type }}
+          Drives: {{ storage.drives | join(', ') }}
+          
+          Datasets created: {{ (datasets.home_datasets + datasets.shared_datasets + datasets.app_datasets) | length }}
+          
+          Services enabled:
+          - SMB/CIFS shares for Windows/Mac
+          - NFS exports for Linux
+          - Automatic snapshots configured
+          - SMART monitoring active
+          - Monthly pool scrubs scheduled
+          
+          Access your data:
+          SMB: \\{{ ansible_host }}\share-name
+          NFS: {{ ansible_host }}:/mnt/tank/shared/media
+          Web: https://{{ ansible_host }}
+          
+          Next steps:
+          1. Configure backup destinations
+          2. Set up monitoring alerts
+          3. Test restore procedures
+          4. Add additional applications if needed
+          
+    - name: Save provisioning completion info
+      copy:
+        content: |
+          Provisioning completed: {{ ansible_date_time.iso8601 }}
+          Pool: {{ storage.pool_name }} ({{ storage.pool_type }})
+          Drives: {{ storage.drives | join(', ') }}
+          Datasets: {{ (datasets.home_datasets + datasets.shared_datasets + datasets.app_datasets) | length }}
+          Services: SMB, NFS, SSH, Web UI
+          Monitoring: SMART, Snapshots, Scrubs
+        dest: /root/provisioning-completed.txt
