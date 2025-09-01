@@ -85,7 +85,7 @@ jobs:
               echo "ERROR: Found internet-exposed UI configuration"
               exit 1
             fi
-            if find specs/ -name "*.yaml" -o -name "*.yml" 2>/dev/null | xargs grep -l "dataset.*critical" | xargs grep -L "backup" 2>/dev/null; then
+            if find specs/ -name "*.yaml" -o -name "*.yml" 2>/dev/null | xargs grep -l "dataset.*critical" | xargs grep -L "backup" 2>/dev/null || true; then
               echo "WARNING: Found critical datasets without backup policies"
             fi
             echo "Basic policy checks passed"
