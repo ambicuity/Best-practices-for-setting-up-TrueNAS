@@ -1,0 +1,273 @@
+---
+# Home Network Configuration 
+# Simple single-NIC setup with VPN access for admin
+
+interfaces:
+  # Primary network interface
+  - name: "eno1"  # Adjust based on your interface name
+    type: "ethernet"
+    ipv4:
+      method: "static"
+      address: "192.168.1.100"
+      netmask: "255.255.255.0"
+      gateway: "192.168.1.1"
+      dns_servers: 
+        - "192.168.1.1"   # Router DNS
+        - "1.1.1.1"       # Cloudflare backup
+        - "8.8.8.8"       # Google backup
+    ipv6:
+      method: "auto"      # Let router handle IPv6
+    mtu: 1500
+    
+  # Optional: VLAN for management (if supported by network)
+  # - name: "eno1.10"
+  #   type: "vlan"
+  #   parent: "eno1"
+  #   vlan_id: 10
+  #   ipv4:
+  #     method: "static"
+  #     address: "192.168.10.100"
+  #     netmask: "255.255.255.0"
+
+# Hostname and domain settings
+hostname: "truenas-home"
+domain: "home.local"
+search_domains: 
+  - "home.local"
+
+# Service network bindings
+service_bindings:
+  # Web UI - restrict to specific interfaces
+  web_ui:
+    bind_addresses: ["192.168.1.100"]
+    https_port: 443
+    http_port: 80
+    http_redirect: true  # Redirect HTTP to HTTPS
+    certificate: "selfsigned"  # Use self-signed cert initially
+    
+  # SSH service
+  ssh:
+    bind_addresses: ["192.168.1.100"]
+    port: 22
+    protocol: 2
+    
+  # SMB/CIFS
+  smb:
+    bind_addresses: ["192.168.1.100"]
+    netbios_name: "TRUENAS-HOME"
+    
+  # NFS
+  nfs:
+    bind_addresses: ["192.168.1.100"]
+    
+# Firewall configuration (basic security)
+firewall:
+  enabled: true
+  default_policy: "drop"  # Deny all by default
+  
+  # Allowed incoming connections
+  rules:
+    # SSH (only from local network)
+    - name: "allow-ssh-local"
+      action: "allow"
+      protocol: "tcp"  
+      port: 22
+      source: "192.168.1.0/24"
+      interface: "eno1"
+      
+    # HTTPS Web UI (only from local network)
+    - name: "allow-https-local"
+      action: "allow"
+      protocol: "tcp"
+      port: 443
+      source: "192.168.1.0/24"
+      interface: "eno1"
+      
+    # HTTP (redirect to HTTPS)
+    - name: "allow-http-redirect"
+      action: "allow"
+      protocol: "tcp"
+      port: 80
+      source: "192.168.1.0/24"
+      interface: "eno1"
+      
+    # SMB/CIFS (local network only)
+    - name: "allow-smb"
+      action: "allow"
+      protocol: "tcp"
+      ports: [139, 445]
+      source: "192.168.1.0/24"
+      interface: "eno1"
+      
+    # NetBIOS
+    - name: "allow-netbios"
+      action: "allow"
+      protocol: "udp"
+      ports: [137, 138]
+      source: "192.168.1.0/24"
+      interface: "eno1"
+      
+    # NFS
+    - name: "allow-nfs"
+      action: "allow" 
+      protocol: "tcp"
+      ports: [111, 2049]
+      source: "192.168.1.0/24"
+      interface: "eno1"
+      
+    # NFS UDP (if needed)
+    - name: "allow-nfs-udp"  
+      action: "allow"
+      protocol: "udp"
+      port: 111
+      source: "192.168.1.0/24"
+      interface: "eno1"
+      
+    # Ping/ICMP  
+    - name: "allow-ping"
+      action: "allow"
+      protocol: "icmp"
+      source: "192.168.1.0/24"
+      interface: "eno1"
+      
+    # Multicast DNS (for service discovery)
+    - name: "allow-mdns"
+      action: "allow"
+      protocol: "udp"
+      port: 5353
+      destination: "224.0.0.251"
+      interface: "eno1"
+      
+  # Block all other incoming traffic
+  - name: "default-drop"
+    action: "drop"
+    protocol: "all"
+    log: true
+
+# VPN Configuration for Remote Admin Access  
+# Using WireGuard for simplicity and security
+vpn:
+  wireguard:
+    enabled: false  # Enable after initial setup
+    interface: "wg0"
+    listen_port: 51820
+    private_key_file: "/etc/wireguard/privatekey"
+    
+    # VPN network (different from main network)
+    network: "10.0.0.0/24"
+    server_ip: "10.0.0.1"
+    
+    # DNS for VPN clients
+    dns_servers: ["192.168.1.1", "1.1.1.1"]
+    
+    # Allowed peers (admin devices)
+    peers:
+      - name: "john-laptop"
+        public_key: "CHANGEME_PUBLIC_KEY_1"
+        allowed_ips: ["10.0.0.10/32"]
+        persistent_keepalive: 25
+        
+      - name: "john-phone"
+        public_key: "CHANGEME_PUBLIC_KEY_2"  
+        allowed_ips: ["10.0.0.11/32"]
+        persistent_keepalive: 25
+    
+    # Firewall rules for VPN
+    firewall_rules:
+      # Allow VPN connection
+      - name: "allow-wireguard"
+        action: "allow"
+        protocol: "udp"
+        port: 51820
+        source: "any"  # VPN can come from anywhere
+        
+      # Allow VPN clients to access TrueNAS services
+      - name: "allow-vpn-https"
+        action: "allow"
+        protocol: "tcp"
+        port: 443
+        source: "10.0.0.0/24"
+        
+      - name: "allow-vpn-ssh"
+        action: "allow"  
+        protocol: "tcp"
+        port: 22
+        source: "10.0.0.0/24"
+
+# Network monitoring and diagnostics
+monitoring:
+  # Network interface monitoring
+  interface_monitoring:
+    enabled: true
+    check_interval: 60  # seconds
+    alert_thresholds:
+      bandwidth_utilization: 80  # percent
+      error_rate: 0.1  # percent
+      latency_ms: 100
+      
+  # DNS monitoring
+  dns_monitoring:
+    enabled: true
+    test_domains: 
+      - "google.com"
+      - "cloudflare.com"
+    check_interval: 300  # 5 minutes
+    
+  # Gateway monitoring
+  gateway_monitoring:
+    enabled: true
+    target: "192.168.1.1"
+    check_interval: 60
+    timeout: 5
+    
+# Quality of Service (if needed)
+qos:
+  enabled: false  # Disabled by default for home use
+  # Uncomment and configure if you have bandwidth limitations
+  # upload_bandwidth: "100Mbit"
+  # download_bandwidth: "1000Mbit"
+  # rules:
+  #   - name: "prioritize-management"
+  #     protocol: "tcp"
+  #     ports: [22, 443]
+  #     priority: "high"
+  #   - name: "limit-backup"  
+  #     service: "backup"
+  #     priority: "low"
+  #     bandwidth_limit: "10Mbit"
+
+# Time synchronization
+ntp:
+  enabled: true
+  servers:
+    - "pool.ntp.org"
+    - "time.nist.gov"
+  timezone: "America/New_York"  # Change to your timezone
+  
+# Network security hardening
+security_hardening:
+  # Disable unnecessary services
+  disable_services:
+    - "telnet"
+    - "rsh" 
+    - "ftp"
+    
+  # TCP/IP stack hardening
+  sysctl_settings:
+    # Disable IP forwarding (not a router)
+    "net.ipv4.ip_forward": 0
+    
+    # Enable TCP SYN cookies
+    "net.ipv4.tcp_syncookies": 1
+    
+    # Ignore ICMP redirect messages
+    "net.ipv4.conf.all.accept_redirects": 0
+    
+    # Ignore source routed packets  
+    "net.ipv4.conf.all.accept_source_route": 0
+    
+    # Disable IPv6 if not used
+    "net.ipv6.conf.all.disable_ipv6": 0  # Keep enabled
+    
+    # Log martians (suspicious packets)
+    "net.ipv4.conf.all.log_martians": 1

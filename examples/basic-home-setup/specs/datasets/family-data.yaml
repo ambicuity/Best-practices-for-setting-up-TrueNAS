@@ -1,0 +1,166 @@
+---
+# Family Dataset Structure
+# Organized by data type and access patterns
+
+datasets:
+  # Root dataset
+  - name: tank
+    properties:
+      compression: lz4
+      atime: "off"
+      recordsize: 128K
+      aclmode: passthrough
+      aclinherit: passthrough
+    
+  # Personal user directories  
+  - name: tank/home
+    properties:
+      compression: lz4
+      atime: "off"
+      recordsize: 128K
+      quota: 2TB  # Prevent any single user from filling pool
+    children:
+      - name: john
+        properties: 
+          quota: 500GB
+          reservation: 10GB
+        acl: owner-full
+      - name: susan
+        properties: 
+          quota: 500GB
+          reservation: 10GB
+        acl: owner-full
+      - name: alice
+        properties: 
+          quota: 200GB
+          reservation: 5GB
+        acl: owner-full
+      - name: bob
+        properties: 
+          quota: 200GB
+          reservation: 5GB
+        acl: owner-full
+  
+  # Shared family data
+  - name: tank/shared
+    properties:
+      compression: lz4
+      atime: "off" 
+      recordsize: 128K
+    children:
+      # Family photos and videos
+      - name: media
+        properties:
+          recordsize: 1M      # Large files benefit from bigger recordsize
+          compression: lz4     # Media files don't compress well, but try
+          quota: 2TB
+        acl: family-rw
+      
+      # Family documents
+      - name: documents
+        properties:
+          recordsize: 128K     # Mixed file sizes
+          compression: zstd    # Better compression for documents
+          quota: 500GB
+        acl: family-rw
+      
+      # Guest/public access
+      - name: public
+        properties:
+          recordsize: 128K
+          compression: lz4
+          quota: 100GB
+        acl: public-ro
+      
+      # Software/downloads temporary area
+      - name: downloads
+        properties:
+          recordsize: 128K
+          compression: lz4
+          quota: 200GB
+        acl: family-rw
+
+  # Application data
+  - name: tank/apps
+    properties:
+      compression: zstd      # Apps benefit from better compression
+      atime: "off"
+      recordsize: 128K
+      quota: 1TB
+    children:
+      # Nextcloud for file syncing
+      - name: nextcloud
+        properties:
+          recordsize: 128K    # Mixed file sizes
+          compression: zstd
+          quota: 500GB
+        acl: app-data
+      
+      # Plex media server  
+      - name: plex
+        properties:
+          recordsize: 1M      # Large media files
+          compression: lz4    # Media doesn't compress well
+          quota: 200GB       # Just metadata and transcoding
+        acl: app-data
+      
+      # Database storage
+      - name: databases
+        properties:
+          recordsize: 16K     # Small database blocks
+          compression: zstd   # Good compression for DB data
+          sync: always       # Ensure database consistency
+          quota: 100GB
+        acl: app-data
+
+# ACL Templates
+acl_templates:
+  owner-full:
+    - user: "@owner@"
+      permissions: full_control
+      type: allow
+      
+  family-rw:
+    - group: "family"
+      permissions: full_control
+      type: allow
+    - group: "guests"  
+      permissions: read_execute
+      type: allow
+      
+  family-ro:
+    - group: "family"
+      permissions: read_execute  
+      type: allow
+      
+  public-ro:
+    - group: "everyone"
+      permissions: read_execute
+      type: allow
+      
+  app-data:
+    - user: "apps"
+      permissions: full_control
+      type: allow
+    - group: "storage-admins"
+      permissions: full_control
+      type: allow
+
+# Snapshot policies per dataset
+snapshot_policies:
+  # Critical data - frequent snapshots
+  - datasets: ["tank/home", "tank/shared/documents", "tank/apps"]
+    hourly: {keep: 24, enabled: true}
+    daily: {keep: 7, enabled: true}
+    weekly: {keep: 4, enabled: true}
+    monthly: {keep: 6, enabled: true}
+    
+  # Media - less frequent (large datasets)
+  - datasets: ["tank/shared/media"]
+    daily: {keep: 3, enabled: true}
+    weekly: {keep: 2, enabled: true}
+    monthly: {keep: 3, enabled: true}
+    
+  # Temporary data - minimal snapshots  
+  - datasets: ["tank/shared/downloads", "tank/shared/public"]
+    daily: {keep: 1, enabled: true}

@@ -1,0 +1,202 @@
+---
+# Network Share Configuration for Home Setup
+# SMB shares for Windows/Mac compatibility, NFS for Linux clients
+
+smb_shares:
+  # Personal home directories
+  - name: "john-home"
+    path: "/mnt/tank/home/john"
+    description: "John's personal files"
+    browsable: false  # Hidden from network browse
+    guest_ok: false
+    read_only: false
+    valid_users: ["john"]
+    valid_groups: ["storage-admins"]
+    create_mask: "0755"
+    directory_mask: "0755"
+    vfs_objects: ["fruit", "streams_xattr"]  # macOS compatibility
+    
+  - name: "susan-home" 
+    path: "/mnt/tank/home/susan"
+    description: "Susan's personal files"
+    browsable: false
+    guest_ok: false
+    read_only: false
+    valid_users: ["susan"]
+    valid_groups: ["storage-admins"]
+    create_mask: "0755"
+    directory_mask: "0755"
+    vfs_objects: ["fruit", "streams_xattr"]
+    
+  - name: "alice-home"
+    path: "/mnt/tank/home/alice" 
+    description: "Alice's personal files"
+    browsable: false
+    guest_ok: false
+    read_only: false
+    valid_users: ["alice"]
+    valid_groups: ["storage-admins"]
+    create_mask: "0755"
+    directory_mask: "0755"
+    
+  - name: "bob-home"
+    path: "/mnt/tank/home/bob"
+    description: "Bob's personal files" 
+    browsable: false
+    guest_ok: false
+    read_only: false
+    valid_users: ["bob"]
+    valid_groups: ["storage-admins"]
+    create_mask: "0755"
+    directory_mask: "0755"
+
+  # Shared family areas
+  - name: "family-media"
+    path: "/mnt/tank/shared/media"
+    description: "Family photos and videos"
+    browsable: true
+    guest_ok: false
+    read_only: false
+    valid_groups: ["family"]
+    invalid_users: ["guest"]
+    create_mask: "0664"
+    directory_mask: "0775"
+    vfs_objects: ["fruit", "streams_xattr", "catia"]  # Extended compatibility
+    fruit:
+      encoding: "utf8"
+      resource_fork: file
+      metadata: stream
+    shadow_copy: true  # Access to snapshots
+    
+  - name: "family-documents"
+    path: "/mnt/tank/shared/documents"
+    description: "Family documents and files"
+    browsable: true
+    guest_ok: false
+    read_only: false
+    valid_groups: ["family"] 
+    create_mask: "0664"
+    directory_mask: "0775"
+    vfs_objects: ["fruit", "streams_xattr", "recycle"]
+    recycle:
+      repository: ".recycle"
+      keep_dir_tree: true
+      versions: true
+      maxsize: 1000000  # 1MB max file size for recycle
+    shadow_copy: true
+    
+  - name: "downloads"
+    path: "/mnt/tank/shared/downloads"
+    description: "Temporary download area"
+    browsable: true
+    guest_ok: false
+    read_only: false
+    valid_groups: ["family"]
+    create_mask: "0664"
+    directory_mask: "0775"
+    
+  - name: "public"
+    path: "/mnt/tank/shared/public"
+    description: "Public guest access"
+    browsable: true
+    guest_ok: true
+    read_only: true  # Guests can only read
+    valid_users: ["guest"]
+    valid_groups: ["family", "guests"]
+    create_mask: "0644"
+    directory_mask: "0755"
+
+# NFS exports for Linux/Unix clients  
+nfs_exports:
+  - path: "/mnt/tank/shared/media"
+    description: "Family media for NFS clients"
+    clients:
+      - host: "192.168.1.0/24"
+        options: ["rw", "sync", "no_root_squash"]
+        access_groups: ["family"]
+        
+  - path: "/mnt/tank/shared/documents"
+    description: "Family documents for NFS clients"
+    clients:
+      - host: "192.168.1.0/24" 
+        options: ["rw", "sync", "root_squash"]
+        access_groups: ["family"]
+        
+  # Read-only export for media streaming
+  - path: "/mnt/tank/shared/media"
+    description: "Read-only media access"
+    export_name: "media-ro"
+    clients:
+      - host: "192.168.1.0/24"
+        options: ["ro", "sync", "all_squash"]
+        access_groups: ["family", "guests"]
+
+# iSCSI targets (if needed for specific applications)
+iscsi_targets:
+  # Example: High-performance storage for a specific VM
+  - name: "vm-storage"
+    portal_group: 1
+    initiator_group: "home-vms"
+    auth_method: "CHAP"
+    auth_group: "home-auth"
+    extents:
+      - name: "vm-disk-1"
+        type: "ZVOL"
+        path: "/dev/zvol/tank/apps/vm-storage/disk1"  
+        size: "100GB"
+        blocksize: 16384
+    enabled: false  # Disabled by default, enable if needed
+
+# Share security and optimization
+security_settings:
+  # SMB security
+  smb:
+    server_role: "standalone"
+    workgroup: "HOME"
+    netbios_name: "TRUENAS-HOME"
+    enable_smb1: false  # Disable legacy SMB1
+    min_protocol: "SMB2_02"
+    max_protocol: "SMB3_11"
+    server_signing: "auto"
+    client_signing: "auto"
+    
+  # NFS security  
+  nfs:
+    v4_enabled: true
+    v3_enabled: true
+    v2_enabled: false  # Disable legacy NFSv2
+    udp_enabled: false  # TCP only for reliability
+    bind_addresses: ["192.168.1.100"]  # Bind to specific interface
+    
+# Performance optimization
+performance_settings:
+  smb:
+    async_io: true
+    use_sendfile: true
+    max_connections: 50
+    deadtime: 15  # minutes
+    keepalive: 300  # seconds
+    socket_options: ["TCP_NODELAY", "IPTOS_LOWDELAY"]
+    
+  nfs:
+    thread_count: 16
+    read_size: 65536
+    write_size: 65536
+    max_connections: 32
+
+# Backup integration
+backup_settings:
+  # Exclude temporary files from backup
+  smb_exclude_patterns:
+    - "*.tmp"
+    - "*.temp"  
+    - ".DS_Store"
+    - "Thumbs.db"
+    - "~$*"  # Office temp files
+    
+  # Shadow copy settings for point-in-time recovery
+  shadow_copy:
+    enabled: true
+    sort: "desc"
+    format: "%Y-%m-%d_%H:%M:%S"
+    localtime: true

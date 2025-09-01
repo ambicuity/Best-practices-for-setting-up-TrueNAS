@@ -1,0 +1,51 @@
+---
+# Home Storage Pool Configuration
+# 4x 4TB drives in RAIDZ1 configuration
+# Provides ~9TB usable space with 1-drive fault tolerance
+
+pool: tank
+ashift: 12  # 4K sectors for modern drives
+vdevs:
+  - type: raidz1
+    disks: [sda, sdb, sdc, sdd]  # Adjust based on your actual drive names
+spares: []  # No hot spares in basic config
+properties:
+  autotrim: "on"
+  autotrim_interval: weekly
+  autoexpand: "on"
+scrub:
+  schedule: monthly
+  day_of_month: 1
+  notification:
+    email: admin@home.local
+    on_failure: true
+    on_completion: false
+
+# Drive health monitoring
+smart:
+  short_test:
+    schedule: daily
+    time: "02:00"
+  long_test:
+    schedule: weekly
+    day: sunday
+    time: "03:00"
+  email_alerts: admin@home.local
+
+# Pool-level optimizations for home use
+tuning:
+  # Optimize for mixed workload (files + media)
+  recordsize: 128K  # Good balance for most home use cases
+  compression: lz4   # Fast compression with good ratio
+  atime: "off"      # Disable access time updates for performance
+  relatime: "on"    # But enable relative atime for some apps
+  sync: standard    # Standard sync behavior for home use
+  
+# Expected performance characteristics
+expected_performance:
+  sequential_read: "400 MB/s"   # Gigabit network limited
+  sequential_write: "300 MB/s"  # RAIDZ1 write penalty
+  capacity_raw: "16TB"
+  capacity_usable: "12TB"
+  fault_tolerance: "1 drive"
+  rebuild_time: "8-12 hours"    # Depends on drive size/speed

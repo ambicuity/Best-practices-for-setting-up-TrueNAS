@@ -1,0 +1,183 @@
+---
+# Family Users and Groups Configuration
+# Designed for home environment with appropriate access levels
+
+groups:
+  # Administrative group with full system access
+  - name: storage-admins
+    gid: 1000
+    description: "System administrators with full TrueNAS access"
+    sudo_access: true
+    
+  # Family group for shared resources
+  - name: family
+    gid: 1001  
+    description: "Family members with access to shared resources"
+    sudo_access: false
+    
+  # Guest group for limited access
+  - name: guests
+    gid: 1002
+    description: "Guest users with read-only access to public shares"
+    sudo_access: false
+    
+  # App service group
+  - name: apps
+    gid: 1003
+    description: "Application service accounts"
+    sudo_access: false
+
+# User accounts
+users:
+  # Primary administrator (Dad)
+  - name: john
+    uid: 2000
+    full_name: "John Smith"
+    email: "john@home.local"
+    groups: [storage-admins, family]
+    home_dataset: "tank/home/john"
+    shell: /bin/bash
+    ssh_keys:
+      - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQA... john@admin-laptop"
+      - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQA... john@phone"
+    password_disabled: true
+    sudo_access: true
+    
+  # Secondary admin (Mom) 
+  - name: susan
+    uid: 2001
+    full_name: "Susan Smith"
+    email: "susan@home.local"
+    groups: [family]
+    home_dataset: "tank/home/susan"
+    shell: /bin/bash
+    ssh_keys:
+      - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQA... susan@laptop"
+    password_disabled: true
+    sudo_access: false
+    
+  # Child user 1
+  - name: alice
+    uid: 2002
+    full_name: "Alice Smith"
+    email: "alice@home.local" 
+    groups: [family]
+    home_dataset: "tank/home/alice"
+    shell: /bin/bash
+    quota_limit: 200GB
+    password_disabled: false  # Kids might need passwords for apps
+    sudo_access: false
+    restrictions:
+      time_limits: "08:00-22:00"  # Access time restrictions
+      bandwidth_limit: "50Mbps"
+    
+  # Child user 2  
+  - name: bob
+    uid: 2003
+    full_name: "Bob Smith"
+    email: "bob@home.local"
+    groups: [family]
+    home_dataset: "tank/home/bob"  
+    shell: /bin/bash
+    quota_limit: 200GB
+    password_disabled: false
+    sudo_access: false
+    restrictions:
+      time_limits: "08:00-22:00"
+      bandwidth_limit: "50Mbps"
+    
+  # Guest account for visitors
+  - name: guest
+    uid: 2004
+    full_name: "Guest User"
+    groups: [guests]
+    home_dataset: null  # No personal storage
+    shell: /bin/bash
+    password_disabled: false
+    sudo_access: false
+    restrictions:
+      quota_limit: 1GB
+      access_schedule: "temporary"  # Can be disabled easily
+
+# Service accounts for applications
+service_accounts:
+  - name: nextcloud
+    uid: 3000
+    groups: [apps]
+    home: /var/lib/nextcloud
+    shell: /bin/false
+    description: "Nextcloud application service account"
+    
+  - name: plex  
+    uid: 3001
+    groups: [apps]
+    home: /var/lib/plex
+    shell: /bin/false
+    description: "Plex Media Server service account"
+    
+  - name: backup
+    uid: 3002  
+    groups: [apps]
+    home: /var/lib/backup
+    shell: /bin/false
+    description: "Backup service account"
+
+# Access control policies
+access_policies:
+  # Home directory access
+  home_directories:
+    owner_access: full_control
+    admin_access: full_control  # Admins can access any home dir
+    family_access: none         # Family can't access each other's homes
+    guest_access: none
+    
+  # Shared area access
+  shared_areas:
+    family_media:
+      family: read_write
+      guests: read_only
+      admins: full_control
+    family_documents:  
+      family: read_write
+      guests: none
+      admins: full_control
+    public_share:
+      everyone: read_only
+      family: read_write  
+      admins: full_control
+    downloads:
+      family: read_write
+      guests: none
+      admins: full_control
+
+# Password policies
+password_policy:
+  min_length: 12
+  require_complexity: true
+  history_count: 5
+  max_age_days: 90
+  lockout_threshold: 5
+  lockout_duration: 30  # minutes
+  
+# SSH security settings
+ssh_security:
+  permit_root_login: false
+  password_authentication: false  # Key-based only for admins
+  max_auth_tries: 3
+  client_alive_interval: 300  # 5 minutes
+  client_alive_count_max: 2
+  allowed_users: [john, susan]  # Only admins via SSH
+  allowed_groups: [storage-admins]
+
+# Audit and logging
+audit_settings:
+  log_user_actions: true
+  log_file_access: critical_only  # Only log access to critical data
+  retention_days: 90
+  email_alerts: 
+    - admin@home.local
+  alert_on:
+    - failed_logins
+    - privilege_escalation  
+    - unusual_access_patterns
+    - quota_warnings
