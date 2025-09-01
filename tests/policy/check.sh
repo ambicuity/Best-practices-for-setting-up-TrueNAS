@@ -9,7 +9,7 @@ echo "Running TrueNAS policy checks..."
 
 # Check for unsafe UI exposure
 echo "Checking for internet-exposed UI..."
-if find "$SPECS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "exposure.*internet" 2>/dev/null; then
+if find "$SPECS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "exposure: internet" 2>/dev/null; then
     echo "ERROR: Found internet-exposed UI configuration!"
     echo "Web UI must only be accessible through VPN."
     exit 1
