@@ -1,3 +1,4 @@
+---
 snapshots:
   - dataset: tank/apps
     name: auto-%Y%m%d-%H%M

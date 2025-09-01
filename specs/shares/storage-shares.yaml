@@ -1,3 +1,4 @@
+---
 shares:
   smb:
     - name: media
@@ -10,7 +11,7 @@ shares:
       valid_users: "@media-users"
       create_mask: "0664"
       directory_mask: "0775"
-      
+
     - name: apps
       path: /mnt/tank/apps
       comment: "Application data and configurations"
@@ -38,19 +39,19 @@ iscsi:
       portal_group: "pg1"
       initiator_group: "ig1"
       auth_network: "192.168.100.0/24"
-      
+
   extents:
     - name: "vm-disk-01"
       type: "ZVOL"
       device: "tank/vms/vm-disk-01"
       size: "100GB"
-      
+
   portal_groups:
-    - name: "pg1" 
+    - name: "pg1"
       portals:
         - ip: "192.168.100.10"
           port: 3260
-          
+
   initiator_groups:
     - name: "ig1"
       initiators:

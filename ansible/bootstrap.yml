@@ -1,8 +1,8 @@
 ---
 - name: TrueNAS Bootstrap
   hosts: truenas
-  gather_facts: no
-  become: yes
+  gather_facts: false
+  become: true
   vars:
     admin_keys:
       - user: alice
@@ -25,11 +25,11 @@
         name: "{{ item.user }}"
         groups: "{{ item.groups | default([]) }}"
         shell: /bin/bash
-        create_home: yes
+        create_home: true
         state: present
       loop:
-        - { user: alice, groups: ["storage-admins", "sudo"] }
-        - { user: bob, groups: ["media-users", "app-users"] }
+        - {user: alice, groups: ["storage-admins", "sudo"]}
+        - {user: bob, groups: ["media-users", "app-users"]}
 
     - name: Upload SSH keys for admins
       ansible.builtin.authorized_key:
@@ -42,7 +42,7 @@
       ansible.builtin.lineinfile:
         path: /etc/sudoers.d/storage-admins
         line: "%storage-admins ALL=(ALL) NOPASSWD:ALL"
-        create: yes
+        create: true
         validate: 'visudo -cf %s'
 
     - name: Disable root SSH login
@@ -50,7 +50,7 @@
         path: /etc/ssh/sshd_config
         regexp: '^#?PermitRootLogin'
         line: 'PermitRootLogin no'
-        backup: yes
+        backup: true
       notify: restart sshd
 
     - name: Configure SSH key-only authentication
@@ -58,7 +58,7 @@
         path: /etc/ssh/sshd_config
         regexp: '^#?PasswordAuthentication'
         line: 'PasswordAuthentication no'
-        backup: yes
+        backup: true
       notify: restart sshd
 
   handlers:

@@ -1,13 +1,14 @@
+---
 dataset: tank/apps
 properties:
   compression: zstd
-  atime: off
+  atime: false
   recordsize: 1M
   aclmode: passthrough
 children:
   - name: nextcloud
-    properties: { recordsize: 128K }
+    properties: {recordsize: 128K}
   - name: media
-    properties: { recordsize: 1M }
+    properties: {recordsize: 1M}
   - name: backups
-    properties: { compression: lz4, recordsize: 128K }
+    properties: {compression: lz4, recordsize: 128K}

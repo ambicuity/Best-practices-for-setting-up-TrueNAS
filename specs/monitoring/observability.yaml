@@ -1,3 +1,6 @@
+---
+# TrueNAS Observability and Monitoring Configuration
+
 smart:
   schedule:
     short_test:
@@ -9,7 +12,7 @@ smart:
       day: sunday
       time: "02:00"
       disks: "all"
-  
+
   alerts:
     email: admin@example.com
     on_failure: true
@@ -23,7 +26,7 @@ zfs_events:
     - scrub_errors
     - checksum_errors
     - io_errors
-  
+
   notifications:
     email: admin@example.com
     severity:
@@ -39,7 +42,7 @@ system_health:
     - network_throughput
     - pool_health
     - arc_statistics
-    
+
   thresholds:
     cpu_warning: 80
     cpu_critical: 95
@@ -55,7 +58,7 @@ grafana_dashboards:
       - system_resources
       - network_activity
       - smart_status
-      
+
   - name: "Performance Metrics"
     panels:
       - arc_hit_ratio

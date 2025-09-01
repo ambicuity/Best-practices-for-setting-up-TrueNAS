@@ -1,3 +1,4 @@
+---
 vlans:
   - id: 10
     name: storage
@@ -27,6 +28,6 @@ vpn:
     - name: admin-laptop
       public_key: "ADMIN_LAPTOP_PUBLIC_KEY"
       allowed_ips: ["10.0.0.2/32"]
-    - name: admin-phone  
+    - name: admin-phone
       public_key: "ADMIN_PHONE_PUBLIC_KEY"
       allowed_ips: ["10.0.0.3/32"]

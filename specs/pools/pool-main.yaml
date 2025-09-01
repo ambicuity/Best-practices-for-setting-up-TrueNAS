@@ -1,3 +1,4 @@
+---
 pool: tank
 ashift: 12
 vdevs:
@@ -7,7 +8,7 @@ vdevs:
     disks: [da6, da7, da8, da9, da10, da11]
 spares: [da12]
 properties:
-  autotrim: on
+  autotrim: true
   autotrim_interval: weekly
 scrub:
   schedule: monthly

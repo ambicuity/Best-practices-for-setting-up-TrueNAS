@@ -1,16 +1,5 @@
 ---
-groups:
-  - name: storage-admins
-    gid: 1100
-    description: "Full storage system administrators"
-  - name: media-users
-    gid: 1200
-    description: "Users with access to media datasets"
-  - name: app-users
-    gid: 1300
-    description: "Users with access to application datasets"
-
-users:
+system_users:
   - name: alice
     uid: 2101
     groups: [storage-admins]
