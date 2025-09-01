@@ -1,0 +1,32 @@
+vlans:
+  - id: 10
+    name: storage
+    description: "Storage network for high-throughput data access"
+  - id: 20
+    name: management
+    description: "Management network for admin access"
+
+interfaces:
+  - name: lagg0
+    type: lagg
+    lagg_protocol: lacp
+    members: [enp1s0, enp2s0]
+    mtu: 9000
+    vlan: 10
+
+ui:
+  exposure: vpn-only
+  https: required
+  hsts: true
+  port: 443
+
+vpn:
+  type: wireguard
+  port: 51820
+  peers:
+    - name: admin-laptop
+      public_key: "ADMIN_LAPTOP_PUBLIC_KEY"
+      allowed_ips: ["10.0.0.2/32"]
+    - name: admin-phone  
+      public_key: "ADMIN_PHONE_PUBLIC_KEY"
+      allowed_ips: ["10.0.0.3/32"]

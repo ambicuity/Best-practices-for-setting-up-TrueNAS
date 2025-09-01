@@ -1,0 +1,50 @@
+snapshots:
+  - dataset: tank/apps
+    name: auto-%Y%m%d-%H%M
+    schedule: hourly
+    keep: 48
+    enabled: true
+  - dataset: tank/apps
+    name: daily-%Y%m%d
+    schedule: daily
+    keep: 30
+    enabled: true
+  - dataset: tank
+    name: weekly-%Y-W%W
+    schedule: weekly
+    keep: 8
+    enabled: true
+
+replication:
+  - name: apps-to-cloud
+    from: tank/apps
+    to: b2://my-bucket/apps
+    schedule: daily
+    encrypt: true
+    bandwidth_limit: 50MBps
+    verify: true
+    enabled: true
+  - name: critical-to-offsite
+    from: tank/apps/nextcloud
+    to: ssh://backup-server/tank/remote-backups/nextcloud
+    schedule: daily
+    encrypt: true
+    verify: true
+    enabled: true
+
+restore-tests:
+  cadence: quarterly
+  datasets: [tank/apps, tank/apps/nextcloud]
+  notification:
+    email: admin@example.com
+    success: true
+    failure: true
+
+backup-validation:
+  integrity-checks:
+    schedule: weekly
+    verify-checksums: true
+  retention-policy:
+    critical-data: 1-year
+    user-data: 6-months
+    logs: 90-days
