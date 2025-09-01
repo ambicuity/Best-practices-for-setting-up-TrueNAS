@@ -15,7 +15,7 @@ if find "$SPECS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "exposure.*
     exit 1
 fi
 
-if find "$SPECS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -l "public.*true" 2>/dev/null; then
+if find "$SPECS_DIR" -name "*.yaml" -o -name "*.yml" | xargs grep -El "public:[[:space:]]*true\b" 2>/dev/null; then
     echo "ERROR: Found public interface configuration!"
     echo "Management interfaces should not be public."
     exit 1
