@@ -1,4 +1,7 @@
 ---
+# TrueNAS Network Share Configuration
+# SMB, NFS, and iSCSI share definitions
+
 shares:
   smb:
     - name: media

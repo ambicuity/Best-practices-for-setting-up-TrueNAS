@@ -1,4 +1,7 @@
 ---
+# TrueNAS Backup and Disaster Recovery Policies  
+# Comprehensive backup strategy implementing 3-2-1 methodology
+
 snapshots:
   - dataset: tank/apps
     name: auto-%Y%m%d-%H%M

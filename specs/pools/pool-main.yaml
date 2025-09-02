@@ -1,4 +1,8 @@
 ---
+# TrueNAS Storage Pool Configuration
+# Main production pool with RAIDZ2 configuration for optimal balance
+# of capacity, performance, and resilience
+
 pool: tank
 ashift: 12
 vdevs:

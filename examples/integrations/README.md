@@ -93,7 +93,7 @@ alerting:
     enabled: true
     recipients: ["admin@company.com"]
 
-# specs/backup/example-policies.yml
+# specs/backup/example-policies.yaml
 snapshots:
   - dataset: data/critical
     schedule: hourly
