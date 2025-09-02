@@ -4,6 +4,9 @@ This repository provides a comprehensive framework for setting up, configuring, 
 
 ## 🚀 Quick Start
 
+### For New Users - Complete Guide  
+**[📖 Start with the Complete Setup Guide](guide/README.md)** - Comprehensive step-by-step instructions from hardware planning to production deployment.
+
 ### For New Users - Complete Examples  
 1. **Choose Your Scenario**: Start with [examples/](examples/) for complete deployment examples
    - **Home/Small Office**: [Basic Home Setup](examples/basic-home-setup/) - Complete 4-drive RAIDZ1 system
@@ -21,6 +24,7 @@ This repository provides a comprehensive framework for setting up, configuring, 
 
 ## 📁 Repository Structure
 
+- **[`guide/`](guide/) - Complete step-by-step setup guide from hardware to production**
 - [`AGENTS.md`](AGENTS.md) - Complete multi-agent system documentation
 - [`examples/`](examples/) - **Complete deployment examples from setup to production**
   - [`basic-home-setup/`](examples/basic-home-setup/) - Home/small office deployment with full automation
