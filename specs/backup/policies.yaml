@@ -1,5 +1,5 @@
 ---
-# TrueNAS Backup and Disaster Recovery Policies  
+# TrueNAS Backup and Disaster Recovery Policies
 # Comprehensive backup strategy implementing 3-2-1 methodology
 
 snapshots:
