@@ -1,4 +1,7 @@
 ---
+# TrueNAS User and Group Management
+# Defines system users, groups, and access control structure
+
 groups:
   - name: storage-admins
     gid: 1100

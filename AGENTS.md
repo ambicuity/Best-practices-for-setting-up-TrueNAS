@@ -61,7 +61,7 @@
 ### 2.5 Backup & DR Engineer
 
 * **Scope**: 3‑2‑1 strategy, snapshot policies, replication tasks, cloud tiering (e.g., B2/S3), restore tests.
-* **Deliverables**: `backup/policies.yml`, `replication/tasks.yml`, recovery runbooks.
+* **Deliverables**: `backup/policies.yaml`, `replication/tasks.yaml`, recovery runbooks.
 * **Checks**: RPO/RTO documented; quarterly restore drills; immutability where possible.
 
 ### 2.6 Performance & Caching Engineer
@@ -226,7 +226,7 @@ users:
     groups: [media-users]
 ```
 
-### 5.4 Snapshot & Replication Policy (`specs/backup/policies.yml`)
+### 5.4 Snapshot & Replication Policy (`specs/backup/policies.yaml`)
 
 ```yaml
 snapshots:
@@ -393,7 +393,7 @@ jobs:
 
 ### Backup/DR
 
-> You own 3‑2‑1, snapshot/replication, and restore tests. Output: policies.yml + test plan.
+> You own 3‑2‑1, snapshot/replication, and restore tests. Output: policies.yaml + test plan.
 
 ### Performance
 

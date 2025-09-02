@@ -31,7 +31,7 @@ if find "$SPECS_DIR/datasets" -name "*.yaml" -o -name "*.yml" 2>/dev/null | xarg
 fi
 
 if [ "$critical_found" = true ]; then
-    if [ ! -f "$SPECS_DIR/backup/policies.yml" ]; then
+    if [ ! -f "$SPECS_DIR/backup/policies.yaml" ]; then
         echo "WARNING: Critical datasets found but no backup policies defined"
         echo "Create backup policies in $SPECS_DIR/backup/"
     else

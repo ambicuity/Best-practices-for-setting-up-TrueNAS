@@ -1,4 +1,7 @@
 ---
+# TrueNAS Network Configuration
+# Core network settings including VLANs, interfaces, and VPN access
+
 vlans:
   - id: 10
     name: storage

@@ -75,7 +75,7 @@ provision: ## Apply provisioning to inventory (CAUTION)
 
 .PHONY: backup-plan
 backup-plan: ## Validate backup policies
-	$(PY) $(TESTS)/policy/backup_check.py --policies $(SPECS)/backup/policies.yml
+	$(PY) $(TESTS)/policy/backup_check.py --policies $(SPECS)/backup/policies.yaml
 
 .PHONY: docs
 docs: ## Build/publish docs (optional)

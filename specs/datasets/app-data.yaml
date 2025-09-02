@@ -1,4 +1,7 @@
 ---
+# TrueNAS Dataset Configuration
+# Application data organization with optimized properties
+
 dataset: tank/apps
 properties:
   compression: zstd

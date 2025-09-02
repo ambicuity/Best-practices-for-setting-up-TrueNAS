@@ -12,7 +12,7 @@ You are the Backup & DR Engineer responsible for implementing comprehensive data
 - RPO/RTO planning and documentation
 
 ## Deliverables
-- `specs/backup/policies.yml` - Backup and snapshot policies
+- `specs/backup/policies.yaml` - Backup and snapshot policies
 - `specs/replication/tasks.yml` - Replication configurations
 - Recovery runbooks and procedures
 - Disaster recovery test plans
